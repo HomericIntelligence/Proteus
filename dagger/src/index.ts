@@ -31,12 +31,20 @@ export class Proteus {
   /**
    * Run a test command inside a container built from the source directory.
    * Returns the combined stdout/stderr output.
+   *
+   * Defaults are aligned so they work out of the box: the default command
+   * (`echo ...`) is available on any image, including the default
+   * `ubuntu:22.04` which does NOT ship `just`. Callers that want `just`
+   * MUST pass an image that has it installed AND override `command`
+   * accordingly. See #90.
+   *
    * @param baseImage - Base image to use for the test container (default: ubuntu:22.04)
+   * @param command   - Shell command to execute (default: a no-op echo so the defaults are self-consistent)
    */
   @func()
   async test(
     source: Directory,
-    command: string = "just test",
+    command: string = "echo 'proteus test: override `command` with your test entrypoint'",
     baseImage: string = "ubuntu:22.04"
   ): Promise<string> {
     const output = await dag
