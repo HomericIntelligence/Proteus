@@ -91,9 +91,8 @@ before assuming the defect is unfixed.
 - **CI unit/integration "jobs" are YAML parsers, not tests.** Until #88
   / #89 / #5 land, do not rely on the green CI badge as evidence of
   Dagger function correctness.
-- **GitHub Actions security gaps.** Gitleaks runs with
-  `continue-on-error` (#86); Trivy runs with `exit-code: 0` (#85).
-  Treat absence of a failure as inconclusive.
+- **GitHub Actions security gaps.** Gitleaks runs with `--exit-code 0` (#86);
+  treat absence of a Gitleaks failure as inconclusive. (Trivy gate restored — #85 closed.)
 - **Branch protection partial.** PRs require zero reviews (#95); no
   CODEOWNERS enforcement (#102). See `docs/branch-protection.md` for
   the target state.
