@@ -8,7 +8,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@dagger.io/dagger": "0.20.8"
+    "@dagger.io/dagger": "0.21.3"
   },
   "devDependencies": {
     "typescript": "~6.0.3",
