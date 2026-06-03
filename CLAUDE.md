@@ -100,6 +100,22 @@ before assuming the defect is unfixed.
 Agents must not silently work around these defects; instead, link the
 relevant issue from any PR that touches the affected code.
 
+## Audit Remediation Tracking
+
+The 2026-04-28 STRICT audit (#81) is being remediated in three waves.
+See `docs/audit-2026-04-28/remediation-plan.md` for current status of
+all 33 child issues, target dates, the wave dependency graph, and the
+pre-batched Wave 3 PR map.
+
+Agents picking up an audit child issue MUST:
+1. Read the audit context in #81 and the relevant child issue.
+2. Confirm the file target listed in `remediation-plan.md` matches the
+   actual file — security-scan jobs live in `.github/workflows/_required.yml`,
+   NOT in `.github/workflows/ci.yml`.
+3. Link the child in the PR body via `Refs #81`.
+4. Add a regression test under `tests/` (created in #88) for any bug fix.
+5. Tick the matching checkbox in `docs/audit-2026-04-28/remediation-plan.md`.
+
 ## Development Guidelines
 
 - All Dagger functions must be tested locally with `dagger call` before committing.
