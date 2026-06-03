@@ -185,15 +185,16 @@ jobs:
 
       - name: Run Gitleaks
         run: |
-          # `--exit-code 0` makes gitleaks always exit 0 even when secrets are
-          # found; the SARIF upload (next step) is the authoritative report.
-          # See docs/runbooks/no-silent-failures.md (Bucket E).
+          # Gitleaks exits 1 on any finding (default). The SARIF upload step
+          # below uses `if: always()` so the report is preserved even when
+          # this step fails. See docs/runbooks/no-silent-failures.md.
+          set -euo pipefail
           if [ -f .gitleaks.toml ]; then
             gitleaks detect --source . --config .gitleaks.toml \
-              --report-format sarif --report-path gitleaks.sarif --exit-code 0
+              --report-format sarif --report-path gitleaks.sarif
           else
             gitleaks detect --source . \
-              --report-format sarif --report-path gitleaks.sarif --exit-code 0
+              --report-format sarif --report-path gitleaks.sarif
           fi
 
       - name: Upload Gitleaks SARIF

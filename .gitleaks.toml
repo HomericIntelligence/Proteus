@@ -1,0 +1,14 @@
+# Gitleaks configuration. See https://github.com/gitleaks/gitleaks for syntax.
+# This file extends the default ruleset and allowlists checked-in worktree
+# copies that mirror the main tree (and would otherwise double-report any
+# finding) plus the local build/ scratch tree.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Checked-in worktree copies and build scratch tree"
+paths = [
+  "^build/",
+  "^\\.claude/worktrees/",
+]
