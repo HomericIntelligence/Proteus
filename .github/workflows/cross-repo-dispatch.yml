@@ -56,13 +56,14 @@ jobs:
             # and issues #6, #15.
             echo "::warning title=dispatch-contract::client_payload missing fields: ${missing[*]} — Myrmidons audit log will be incomplete."
           fi
-          echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_ENV"
-          echo "source=${SOURCE}"       >> "$GITHUB_ENV"
+          printf 'image_tag<<EOF\n%s\nEOF\n' "$IMAGE_TAG" >> "$GITHUB_ENV"
+          printf 'source<<EOF\n%s\nEOF\n' "$SOURCE" >> "$GITHUB_ENV"
 
       - name: Dispatch apply to Myrmidons
         env:
           GITHUB_TOKEN:   ${{ secrets.MYRMIDONS_DISPATCH_TOKEN }}
           MYRMIDONS_REPO: HomericIntelligence/Myrmidons
+          HOST:           ${{ env.host }}
           IMAGE_TAG:      ${{ env.image_tag }}
           SOURCE:         ${{ env.source }}
-        run: ./scripts/dispatch-apply.sh "${{ env.host }}" "${{ env.image_tag }}" "${{ env.source }}"
+        run: ./scripts/dispatch-apply.sh "$HOST" "$IMAGE_TAG" "$SOURCE"
