@@ -56,11 +56,10 @@ teardown() { rm -rf "$TMP"; }
   [[ "$output" == *"for host: multihost-b"* ]]
 }
 
-@test "case 3 (legacy): missing host → defaults to hermes (pre-PR-D behavior)" {
-  # After PR-D, this should fail with "host is required"
+@test "case 3 (legacy): missing host → fail-closed (non-zero, 'host is required')" {
   run ./scripts/dispatch-apply.sh
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"for host: hermes"* ]]
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"host is required"* ]]
 }
 
 # --- New for #6 / #15 (will fully pass after PR-D) ---

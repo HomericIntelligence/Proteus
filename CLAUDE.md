@@ -76,21 +76,10 @@ this repo should know about them before changing behaviour in the
 affected areas. Always check the linked issue for the current status
 before assuming the defect is unfixed.
 
-- **Cross-repo dispatch payload contract mismatch.** `cross-repo-dispatch.yml`
-  reads `client_payload.host`, but no documented upstream emitter currently
-  sends that field consistently. See #15, #84.
-- **Build/promote tag arithmetic broken.** The build and promote scripts
-  produce incorrect tags in edge cases (multi-arch, no-tag input). See
-  #2, #83.
-- **CI unit/integration "jobs" are YAML parsers, not tests.** Until #88
-  / #89 / #5 land, do not rely on the green CI badge as evidence of
-  Dagger function correctness.
-- **GitHub Actions security gaps.** Gitleaks runs with
-  `continue-on-error` (#86); Trivy runs with `exit-code: 0` (#85).
-  Treat absence of a failure as inconclusive.
-- **Branch protection partial.** PRs require zero reviews (#95); no
-  CODEOWNERS enforcement (#102). See `docs/branch-protection.md` for
-  the target state.
+- **Image metadata forwarding in dispatch events.** `scripts/dispatch-apply.sh`
+  accepts optional `image_tag` and `source` arguments for audit logging; validation
+  is Phase 1 (warn-only) while AchaeanFleet senders migrate. Phase 2 (fail-closed)
+  is tracked in a follow-up issue. See #6, #15.
 
 Agents must not silently work around these defects; instead, link the
 relevant issue from any PR that touches the affected code.

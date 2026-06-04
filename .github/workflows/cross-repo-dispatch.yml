@@ -28,9 +28,41 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
 
+      - name: Validate client_payload.host is present
+        env:
+          HOST: ${{ github.event.client_payload.host }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${HOST}" ]]; then
+            echo "::error::client_payload.host is required but missing"
+            exit 1
+          fi
+          echo "host=${HOST}" >> "$GITHUB_ENV"
+
+      - name: Validate client_payload.image_tag and source (warn-only — Phase 1, see #27)
+        env:
+          IMAGE_TAG: ${{ github.event.client_payload.image_tag }}
+          SOURCE:    ${{ github.event.client_payload.source }}
+        run: |
+          set -euo pipefail
+          missing=()
+          [[ -z "${IMAGE_TAG}" ]] && missing+=("image_tag")
+          [[ -z "${SOURCE}"    ]] && missing+=("source")
+          if (( ${#missing[@]} > 0 )); then
+            # Phase 1 (#27/PR-D): warn so AchaeanFleet senders that pre-date
+            # field forwarding still trigger a deploy. Phase 2 (separate
+            # follow-up issue, linked from PR-D body) flips this to `exit 1`
+            # after a one-week zero-warning soak. See docs/dispatch-contract.md
+            # and issues #6, #15.
+            echo "::warning title=dispatch-contract::client_payload missing fields: ${missing[*]} — Myrmidons audit log will be incomplete."
+          fi
+          echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_ENV"
+          echo "source=${SOURCE}"       >> "$GITHUB_ENV"
+
       - name: Dispatch apply to Myrmidons
         env:
-          GITHUB_TOKEN: ${{ secrets.MYRMIDONS_DISPATCH_TOKEN }}
+          GITHUB_TOKEN:   ${{ secrets.MYRMIDONS_DISPATCH_TOKEN }}
           MYRMIDONS_REPO: HomericIntelligence/Myrmidons
-          HOST: ${{ github.event.client_payload.host }}
-        run: ./scripts/dispatch-apply.sh "$HOST"
+          IMAGE_TAG:      ${{ env.image_tag }}
+          SOURCE:         ${{ env.source }}
+        run: ./scripts/dispatch-apply.sh "${{ env.host }}" "${{ env.image_tag }}" "${{ env.source }}"
