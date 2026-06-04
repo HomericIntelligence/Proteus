@@ -25,11 +25,11 @@ build NAME:
     dagger call build --context . --name {{NAME}} --tag {{IMAGE_TAG}} --registry {{REGISTRY}}
 
 # Run tests for a given repo using Dagger
-test NAME:
-    dagger call test --source . --command "just test {{NAME}}"
+dagger-test NAME:
+    dagger call test --source . --command "just dagger-test {{NAME}}"
 
 # Full pipeline: build → test → promote → dispatch
-pipeline NAME HOST="hermes": (build NAME) (test NAME)
+pipeline NAME HOST="hermes": (build NAME) (dagger-test NAME)
     just promote {{REGISTRY}}/{{NAME}}:{{IMAGE_TAG}}-staging {{REGISTRY}}/{{NAME}}:{{IMAGE_TAG}}
     just dispatch-apply {{HOST}}
 
@@ -90,3 +90,22 @@ validate:
 	done
 	echo "All pipeline configs valid."
 	exit $errors
+
+# ===========================
+# Test Suite (issue #5)
+# ===========================
+
+# Run Dagger TypeScript unit tests (Jest)
+test-unit:
+    cd dagger && npm ci --prefer-offline --no-audit && npx jest
+
+# Run shell integration tests (bats)
+test-integration:
+    bats tests/integration
+
+# Run e2e tests; requires JUST_RUN_E2E=1 + a running Dagger engine
+test-e2e:
+    JUST_RUN_E2E=1 bats tests/e2e
+
+# Run everything (unit + integration; e2e is opt-in)
+test-all: test-unit test-integration

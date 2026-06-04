@@ -8,6 +8,8 @@ platforms = ["linux-64"]
 [dependencies]
 just = ">=1.13"
 python = ">=3.11"
+nodejs = ">=20"
+bats-core = ">=1.10"
 # skopeo is not available on conda-forge; install via system package manager:
 #   sudo apt install skopeo  (Debian/Ubuntu)
 #   brew install skopeo      (macOS)
@@ -16,8 +18,12 @@ python = ">=3.11"
 pyyaml = ">=6.0"
 
 [tasks]
-build   = "just build {NAME}"
-test    = "just test {NAME}"
-promote = "just promote {SRC} {DEST}"
-lint    = "just lint"
-validate = "just validate"
+build            = "just build {NAME}"
+test             = "just dagger-test {NAME}"
+promote          = "just promote {SRC} {DEST}"
+lint             = "just lint"
+validate         = "just validate"
+test-unit        = "just test-unit"
+test-integration = "just test-integration"
+test-e2e         = "just test-e2e"
+test-all         = "just test-all"
