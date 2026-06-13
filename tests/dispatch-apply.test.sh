@@ -27,13 +27,13 @@ echo "$out" | grep -q "for host: multihost-a" \
   || { echo "FAIL case1: expected 'for host: multihost-a' in output"; echo "$out"; exit 1; }
 
 # Case 2: HOST env var set, no argument — exits 0, prints HOST in output.
-unset HOST || true
+unset HOST
 out=$(env HOST=multihost-b "$REPO_ROOT/scripts/dispatch-apply.sh" 2>&1)
 echo "$out" | grep -q "for host: multihost-b" \
   || { echo "FAIL case2: expected 'for host: multihost-b' in output"; echo "$out"; exit 1; }
 
 # Case 3: NO host (neither arg nor env) — must FAIL CLOSED with nonzero exit.
-unset HOST || true
+unset HOST
 if "$REPO_ROOT/scripts/dispatch-apply.sh" 2>err.txt; then
   echo "FAIL case3: expected nonzero exit, got 0"; cat err.txt; exit 1
 fi
