@@ -90,13 +90,9 @@ before assuming the defect is unfixed.
 - **Pipeline YAML configs are not consumed.** `configs/pipelines/*.yaml`
   is parsed only by `just validate`; no production code reads it.
   See #1, #82.
-- **CI unit/integration jobs now run real tests (#5 resolved by PR #173).**
-  `unit-tests` runs Jest against `dagger/src/` and `integration-tests`
-  runs bats against `scripts/` (via `tests/integration/`), so the green
-  CI badge is now load-bearing for Dagger-function and script
-  correctness. E2E coverage (`tests/e2e/`) is opt-in via the `e2e` label
-  or push-to-main, not the default PR gate. (See #88 / #89 for related
-  test-infra items.)
+- **CI unit/integration "jobs" are YAML parsers, not tests.** Until #88
+  / #89 / #5 land, do not rely on the green CI badge as evidence of
+  Dagger function correctness.
 - **GitHub Actions security gaps.** Gitleaks runs with `--exit-code 0` (#86);
   treat absence of a Gitleaks failure as inconclusive. (Trivy gate restored — #85 closed.)
 - **Branch protection partial.** PRs require zero reviews (#95); no

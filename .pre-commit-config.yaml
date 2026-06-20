@@ -119,17 +119,3 @@ repos:
         always_run: true
         pass_filenames: false
         stages: [pre-push]
-      - id: pipeline-test-suite
-        name: "run pipeline test suite (just test-all) before push"
-        description: >
-          Runs the full pipeline test suite (Dagger unit tests + shell
-          integration tests via `just test-all`) at the pre-push stage so
-          tests cannot be silently skipped before code enters main. e2e
-          tests are opt-in and excluded (see justfile `test-e2e`). Use
-          `git push --no-verify` to bypass intentionally. Requires the
-          #5 test suite (PR #173) to be merged.
-        language: system
-        entry: bash -c 'just test-all'
-        always_run: true
-        pass_filenames: false
-        stages: [pre-push]
