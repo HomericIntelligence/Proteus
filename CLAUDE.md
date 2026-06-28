@@ -81,9 +81,11 @@ before assuming the defect is unfixed.
 
 - **Cross-repo dispatch payload contract.** `cross-repo-dispatch.yml`
   treats `client_payload.host` as REQUIRED and the workflow fails closed
-  with `::error::` if it is absent (#84). Upstream alignment so
-  AchaeanFleet actually emits `host` is tracked in #15; this entry stays
-  until that lands. Canonical schema: `docs/dispatch-contract.md`.
+  with `::error::` if it is absent (#84). It also forwards `image_name`,
+  `image_tag`, `image_digest`, and `source` to Myrmidons when present
+  (#6). Upstream alignment so AchaeanFleet actually emits `host` is
+  tracked in #15; this entry stays until that lands. Canonical schema:
+  `docs/dispatch-contract.md`.
 - **Build/promote tag arithmetic — FIXED.** `dagger call build --publish`
   now pushes to `${registry}/${name}:${tag}-staging` (via the
   `stagingRef` helper in `dagger/src/tag.ts`). `scripts/promote-image.sh`

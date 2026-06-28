@@ -39,8 +39,39 @@ jobs:
           fi
           echo "host=${HOST}" >> "$GITHUB_ENV"
 
+      - name: Validate client_payload (issues #6, #15)
+        env:
+          CLIENT_PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+        run: |
+          set -euo pipefail
+
+          # Required field: host. Reject empty/missing with a clear annotation.
+          host=$(printf '%s' "$CLIENT_PAYLOAD" | jq -r '.host // ""')
+          if [[ -z "$host" ]]; then
+            echo "::error file=.github/workflows/cross-repo-dispatch.yml::client_payload missing required field 'host' (see #6, #15)"
+            echo "Received payload: $CLIENT_PAYLOAD"
+            exit 1
+          fi
+          printf 'HOST=%s\n' "$host" >> "$GITHUB_ENV"
+
+          # Optional metadata: forward to Myrmidons when AchaeanFleet sets it.
+          for field in image_name image_tag image_digest source; do
+            val=$(printf '%s' "$CLIENT_PAYLOAD" | jq -r --arg f "$field" '.[$f] // ""')
+            if [[ -n "$val" ]]; then
+              case "$field" in
+                source) key=SOURCE_REPO ;;
+                *)      key=$(printf '%s' "$field" | tr '[:lower:]' '[:upper:]') ;;
+              esac
+              printf '%s=%s\n' "$key" "$val" >> "$GITHUB_ENV"
+            fi
+          done
+
+          echo "Validated payload for host=${host}"
+
       - name: Dispatch apply to Myrmidons
         env:
           GITHUB_TOKEN: ${{ secrets.MYRMIDONS_DISPATCH_TOKEN }}
           MYRMIDONS_REPO: HomericIntelligence/Myrmidons
-        run: ./scripts/dispatch-apply.sh "${{ env.host }}"
+          # HOST, IMAGE_NAME, IMAGE_TAG, IMAGE_DIGEST, SOURCE_REPO were
+          # appended to $GITHUB_ENV by the validate step above.
+        run: ./scripts/dispatch-apply.sh "$HOST"
