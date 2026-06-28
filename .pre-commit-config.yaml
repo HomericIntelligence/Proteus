@@ -119,3 +119,14 @@ repos:
         always_run: true
         pass_filenames: false
         stages: [pre-push]
+      - id: pipeline-test-suite
+        name: "run pipeline test suite before push"
+        description: >
+          Run the full pipeline test suite (`just test-all`) before every
+          push so untested pipeline code cannot reach main. Bypass with
+          `git push --no-verify` only for emergency CI fixups. Tracks #5.
+        language: system
+        entry: just test-all
+        always_run: true
+        pass_filenames: false
+        stages: [pre-push]

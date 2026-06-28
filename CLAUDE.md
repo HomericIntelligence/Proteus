@@ -94,9 +94,15 @@ before assuming the defect is unfixed.
 - **Pipeline YAML configs are not consumed.** `configs/pipelines/*.yaml`
   is parsed only by `just validate`; no production code reads it.
   See #1, #82.
-- **CI unit/integration "jobs" are YAML parsers, not tests.** Until #88
-  / #89 / #5 land, do not rely on the green CI badge as evidence of
-  Dagger function correctness.
+- **CI unit/integration "jobs" are YAML parsers, not tests.** On `main`
+  the `unit-tests` / `integration-tests` jobs in
+  `.github/workflows/_required.yml` still only YAML-parse pipeline
+  configs (#5 OPEN). Real-test work is staged in PRs #173 and #187;
+  do not rely on the green CI badge as evidence of Dagger function
+  correctness until those land. A `pipeline-test-suite` pre-push hook
+  (`.pre-commit-config.yaml`) now runs `just test-all` locally so
+  untested code is blocked before push even while CI catches up.
+  Flip this entry to "resolved" only after #5 closes.
 - **GitHub Actions security gaps.** Gitleaks runs with `--exit-code 0` (#86);
   treat absence of a Gitleaks failure as inconclusive. (Trivy gate restored — #85 closed.)
 - **Branch protection partial.** PRs require zero reviews (#95); no

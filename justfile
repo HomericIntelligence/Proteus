@@ -76,6 +76,24 @@ lint-verify-92:
 # Run lint + validate together
 check: lint validate
 
+# Run the full local test suite (shell integration tests + config validation)
+test-all:
+	#!/usr/bin/env bash
+	set -euo pipefail
+	echo "== Running pipeline test suite =="
+	failed=0
+	shopt -s nullglob
+	for t in tests/*.test.sh; do
+	    echo "--- $t ---"
+	    bash "$t" || failed=1
+	done
+	just validate || failed=1
+	if [ "$failed" -ne 0 ]; then
+	    echo "FAILED: one or more test suites failed" >&2
+	    exit 1
+	fi
+	echo "PASSED: all test suites passed"
+
 # Validate all pipeline configs in configs/pipelines/
 validate:
 	#!/usr/bin/env bash
