@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
 @test "release workflow exists and triggers on version tags" {
-  run grep -E "tags:|v\*\.\*\.\*" .github/workflows/release.yml
+  run grep -E "^[[:space:]]*- 'v\*\.\*\.\*'" .github/workflows/release.yml
   [ "$status" -eq 0 ]
 }
 
