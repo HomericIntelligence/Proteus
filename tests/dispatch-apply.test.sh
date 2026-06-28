@@ -34,10 +34,34 @@ echo "$out" | grep -q "for host: multihost-b" \
 
 # Case 3: NO host (neither arg nor env) — must FAIL CLOSED with nonzero exit.
 unset HOST
-if "$REPO_ROOT/scripts/dispatch-apply.sh" 2>err.txt; then
-  echo "FAIL case3: expected nonzero exit, got 0"; cat err.txt; exit 1
+err_file="$SHIM_DIR/case3.err"
+if "$REPO_ROOT/scripts/dispatch-apply.sh" 2>"$err_file"; then
+  echo "FAIL case3: expected nonzero exit, got 0"; cat "$err_file"; exit 1
 fi
-grep -q "host is required" err.txt \
-  || { echo "FAIL case3: expected 'host is required' in stderr"; cat err.txt; exit 1; }
+grep -q "host is required" "$err_file" \
+  || { echo "FAIL case3: expected 'host is required' in stderr"; cat "$err_file"; exit 1; }
 
-echo "OK: all 3 cases passed"
+# Case 4 (structural regression guard for #184): the dispatch-apply test MUST
+# be invoked from the branch-protection-REQUIRED `integration-tests` job, not
+# an unrequired standalone job. A running-but-unrequired check can fail without
+# blocking a PR (see skill gha-required-checks-branch-protection §A). Pure-bash
+# grep/awk — no python/pyyaml dependency.
+wf="$REPO_ROOT/.github/workflows/_required.yml"
+# Extract just the integration-tests job block: from its 'integration-tests:'
+# key (2-space indent) up to the next 2-space-indented job key.
+# NOTE: awk assumes 2-space job-key indentation; this is enforced by yamllint,
+# so changes to _required.yml indentation will be caught automatically.
+job_block="$(awk '
+  /^  integration-tests:/ {grab=1; print; next}
+  grab && /^  [A-Za-z0-9_-]+:/ {exit}
+  grab {print}
+' "$wf")"
+echo "$job_block" | grep -q "tests/dispatch-apply.test.sh" \
+  || { echo "FAIL case4: dispatch-apply.test.sh must run inside the required integration-tests job"; exit 1; }
+# The redundant standalone job key must be gone (anchored 2-space indent).
+if grep -qE '^  dispatch-contract-test:' "$wf"; then
+  echo "FAIL case4: redundant standalone dispatch-contract-test job should be removed"; exit 1
+fi
+echo "OK case4: dispatch-apply test wired into required integration-tests job"
+
+echo "OK: all cases passed"

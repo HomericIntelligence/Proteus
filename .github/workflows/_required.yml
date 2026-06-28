@@ -149,13 +149,7 @@ jobs:
           print(f'Validated {len(configs)} pipeline config(s)')
           " && exit 0
 
-  dispatch-contract-test:
-    name: dispatch-contract-test
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
-      - name: Run dispatch-apply shell tests
+      - name: Test dispatch-apply host validation (fail-closed contract)
         run: bash tests/dispatch-apply.test.sh
       - name: Run remediation-plan sync test
         run: bash tests/remediation-plan-sync.test.sh
