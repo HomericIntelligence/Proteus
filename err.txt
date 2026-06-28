@@ -1,1 +1,0 @@
-Error: host is required (pass as $1 or set HOST env var). See docs/dispatch-contract.md (#84).

@@ -33,11 +33,14 @@ echo "$out" | grep -q "for host: multihost-b" \
   || { echo "FAIL case2: expected 'for host: multihost-b' in output"; echo "$out"; exit 1; }
 
 # Case 3: NO host (neither arg nor env) — must FAIL CLOSED with nonzero exit.
+# Capture stderr in the temp dir (cleaned by the EXIT trap) — never write a
+# stray err.txt to the repo root.
 unset HOST
-if "$REPO_ROOT/scripts/dispatch-apply.sh" 2>err.txt; then
-  echo "FAIL case3: expected nonzero exit, got 0"; cat err.txt; exit 1
+err_file="$SHIM_DIR/case3.err"
+if "$REPO_ROOT/scripts/dispatch-apply.sh" 2>"$err_file"; then
+  echo "FAIL case3: expected nonzero exit, got 0"; cat "$err_file"; exit 1
 fi
-grep -q "host is required" err.txt \
-  || { echo "FAIL case3: expected 'host is required' in stderr"; cat err.txt; exit 1; }
+grep -q "host is required" "$err_file" \
+  || { echo "FAIL case3: expected 'host is required' in stderr"; cat "$err_file"; exit 1; }
 
 echo "OK: all 3 cases passed"
