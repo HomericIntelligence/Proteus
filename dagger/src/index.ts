@@ -1,5 +1,42 @@
-import { dag, Container, Directory, object, func } from "@dagger.io/dagger"
+import { dag, Container, Directory, object, func, ExecError } from "@dagger.io/dagger"
 import { stagingRef } from "./tag"
+
+class ProteusPipelineError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message)
+    this.name = "ProteusPipelineError"
+    if (options?.cause !== undefined) {
+      ;(this as Error & { cause?: unknown }).cause = options.cause
+    }
+  }
+}
+
+async function runStep<T>(
+  step: string,
+  context: Record<string, string>,
+  fn: () => Promise<T>
+): Promise<T> {
+  try {
+    return await fn()
+  } catch (err) {
+    const ctx = Object.entries(context)
+      .map(([k, v]) => `${k}=${v}`)
+      .join(" ")
+    let detail: string
+    if (err instanceof ExecError) {
+      const stderr = (err.stderr ?? "").trim().split("\n").slice(-5).join("\n")
+      detail = `exit ${err.exitCode}${stderr ? `: ${stderr}` : ""}`
+    } else if (err instanceof Error) {
+      detail = err.message
+    } else {
+      detail = String(err)
+    }
+    throw new ProteusPipelineError(
+      `proteus: ${step} failed (${ctx}): ${detail}`,
+      { cause: err }
+    )
+  }
+}
 
 @object()
 export class Proteus {
@@ -24,16 +61,12 @@ export class Proteus {
     publish: boolean = false
   ): Promise<string> {
     const ref = stagingRef(registry, name, tag)
-    const image = context
-      .dockerBuild()
+    const image = context.dockerBuild()
 
     if (publish) {
-      const published = await image.publish(ref)
-      return published
-    } else {
-      const digest = await image.id()
-      return digest
+      return runStep("build.publish", { ref }, () => image.publish(ref))
     }
+    return runStep("build.id", { ref }, () => image.id())
   }
 
   /**
@@ -55,15 +88,18 @@ export class Proteus {
     command: string = "echo 'proteus test: override `command` with your test entrypoint'",
     baseImage: string = "ubuntu:22.04"
   ): Promise<string> {
-    const output = await dag
-      .container()
-      .from(baseImage)
-      .withMountedDirectory("/src", source)
-      .withWorkdir("/src")
-      .withExec(["bash", "-c", command])
-      .stdout()
-
-    return output
+    return runStep(
+      "test",
+      { baseImage, command: command.length > 80 ? command.slice(0, 77) + "..." : command },
+      () =>
+        dag
+          .container()
+          .from(baseImage)
+          .withMountedDirectory("/src", source)
+          .withWorkdir("/src")
+          .withExec(["bash", "-c", command])
+          .stdout()
+    )
   }
 
   /**
@@ -72,13 +108,15 @@ export class Proteus {
    */
   @func()
   async lintShellcheck(source: Directory): Promise<string> {
-    return dag
-      .container()
-      .from("koalaman/shellcheck-alpine:stable")
-      .withMountedDirectory("/src", source)
-      .withWorkdir("/src")
-      .withExec(["sh", "-c", "find scripts/ -name '*.sh' | xargs shellcheck"])
-      .stdout()
+    return runStep("lint.shellcheck", { scope: "scripts/*.sh" }, () =>
+      dag
+        .container()
+        .from("koalaman/shellcheck-alpine:stable")
+        .withMountedDirectory("/src", source)
+        .withWorkdir("/src")
+        .withExec(["sh", "-c", "find scripts/ -name '*.sh' | xargs shellcheck"])
+        .stdout()
+    )
   }
 
   /**
@@ -90,18 +128,20 @@ export class Proteus {
   @func()
   async lintTsc(source: Directory): Promise<string> {
     const daggerDir = source.directory("dagger")
-    return dag
-      .container()
-      .from("node:20-alpine")
-      .withMountedCache("/root/.npm", dag.cacheVolume("proteus-npm-cache"))
-      .withWorkdir("/work")
-      .withFile("/work/package.json", daggerDir.file("package.json"))
-      .withFile("/work/package-lock.json", daggerDir.file("package-lock.json"))
-      .withExec(["npm", "ci", "--prefer-offline", "--no-audit"])
-      .withMountedDirectory("/work/src", daggerDir.directory("src"))
-      .withFile("/work/tsconfig.json", daggerDir.file("tsconfig.json"))
-      .withExec(["npx", "tsc", "--noEmit"])
-      .stdout()
+    return runStep("lint.tsc", { scope: "dagger/src" }, () =>
+      dag
+        .container()
+        .from("node:20-alpine")
+        .withMountedCache("/root/.npm", dag.cacheVolume("proteus-npm-cache"))
+        .withWorkdir("/work")
+        .withFile("/work/package.json", daggerDir.file("package.json"))
+        .withFile("/work/package-lock.json", daggerDir.file("package-lock.json"))
+        .withExec(["npm", "ci", "--prefer-offline", "--no-audit"])
+        .withMountedDirectory("/work/src", daggerDir.directory("src"))
+        .withFile("/work/tsconfig.json", daggerDir.file("tsconfig.json"))
+        .withExec(["npx", "tsc", "--noEmit"])
+        .stdout()
+    )
   }
 
   /**
