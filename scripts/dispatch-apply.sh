@@ -8,6 +8,9 @@
 # Optional metadata env vars (forwarded into client_payload when non-empty):
 #   IMAGE_NAME, IMAGE_TAG, IMAGE_DIGEST, SOURCE_REPO
 #
+# The host is additionally validated against configs/allowed-hosts.txt (#97);
+# an unknown or malformed host also FAILS CLOSED.
+#
 # Override curl for tests:
 #   CURL_BIN=/path/to/fake-curl ./scripts/dispatch-apply.sh ...
 
@@ -15,14 +18,23 @@ set -euo pipefail
 
 HOST="${1:-${HOST:-}}"
 MYRMIDONS_REPO="${MYRMIDONS_REPO:-HomericIntelligence/Myrmidons}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ALLOWLIST="${ALLOWED_HOSTS_FILE:-${SCRIPT_DIR}/../configs/allowed-hosts.txt}"
 
 if [[ -z "${HOST}" ]]; then
-    echo "Error: host is required (pass as \$1 or set HOST env var). See docs/dispatch-contract.md (#84)." >&2
+    echo "Error: host is required (pass as \$1 or set HOST env var). See docs/dispatch-contract.md (#84, #97)." >&2
     exit 1
 fi
 
 if [[ -z "${GITHUB_TOKEN:-}" ]]; then
     echo "Error: GITHUB_TOKEN is required." >&2
+    exit 1
+fi
+
+# shellcheck source=scripts/validate-host.sh disable=SC1091
+source "${SCRIPT_DIR}/validate-host.sh"
+if ! validate_host "${HOST}" "${ALLOWLIST}"; then
+    echo "Error: host validation failed for '${HOST}'. See docs/dispatch-contract.md (#97)." >&2
     exit 1
 fi
 

@@ -68,6 +68,16 @@ jobs:
 
           echo "Validated payload for host=${host}"
 
+      - name: Validate client_payload.host against allowlist
+        env:
+          HOST: ${{ env.host }}
+        run: |
+          set -euo pipefail
+          if ! bash scripts/validate-host.sh "${HOST}" configs/allowed-hosts.txt; then
+            echo "::error title=dispatch-contract::client_payload.host failed validation (format or allowlist). See docs/dispatch-contract.md and issue #97."
+            exit 1
+          fi
+
       - name: Dispatch apply to Myrmidons
         env:
           GITHUB_TOKEN: ${{ secrets.MYRMIDONS_DISPATCH_TOKEN }}

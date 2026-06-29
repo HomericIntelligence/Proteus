@@ -1,0 +1,4 @@
+# Allowed Myrmidons target hosts for agamemnon-apply dispatch.
+# Audited entries only. See docs/dispatch-contract.md and issue #97.
+# Format: one RFC 1123 hostname per line. Lines starting with '#' are comments.
+hermes
