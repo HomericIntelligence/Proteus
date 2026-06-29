@@ -16,8 +16,7 @@ def test_schema_matches_committed():
     committed = json.loads(schema_path.read_text())
     generated = Pipeline.model_json_schema()
 
-    if committed != generated:
-        pytest.skip(
-            "schema.json is out of sync. To regenerate:\n"
-            "  pixi run python -m proteus dump-schema > configs/pipelines/schema.json"
-        )
+    assert committed == generated, (
+        "schema.json is out of sync. To regenerate:\n"
+        "  pixi run python -m proteus dump-schema > configs/pipelines/schema.json"
+    )

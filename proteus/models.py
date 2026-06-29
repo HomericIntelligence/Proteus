@@ -1,18 +1,24 @@
 from typing import Annotated, Literal, Union
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class Trigger(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     event: str
     repo: str
 
 
 class Registry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     base: str
     staging_suffix: str = "-staging"
 
 
 class DaggerStage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     type: Literal["dagger"]
     function: str
@@ -21,6 +27,8 @@ class DaggerStage(BaseModel):
 
 
 class ScriptStage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     type: Literal["skopeo", "dispatch"]
     script: str
@@ -32,15 +40,21 @@ Stage = Annotated[Union[DaggerStage, ScriptStage], Field(discriminator="type")]
 
 
 class NotificationChannel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     channel: str
 
 
 class Notifications(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     on_failure: list[NotificationChannel] = Field(default_factory=list)
     on_success: list[NotificationChannel] = Field(default_factory=list)
 
 
 class Pipeline(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     description: str | None = None
     triggers: list[Trigger]

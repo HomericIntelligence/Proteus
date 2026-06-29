@@ -1,6 +1,7 @@
 {
   "$defs": {
     "DaggerStage": {
+      "additionalProperties": false,
       "properties": {
         "args": {
           "additionalProperties": {
@@ -39,6 +40,7 @@
       "type": "object"
     },
     "NotificationChannel": {
+      "additionalProperties": false,
       "properties": {
         "channel": {
           "title": "Channel",
@@ -52,6 +54,7 @@
       "type": "object"
     },
     "Notifications": {
+      "additionalProperties": false,
       "properties": {
         "on_failure": {
           "items": {
@@ -72,6 +75,7 @@
       "type": "object"
     },
     "Registry": {
+      "additionalProperties": false,
       "properties": {
         "base": {
           "title": "Base",
@@ -90,6 +94,7 @@
       "type": "object"
     },
     "ScriptStage": {
+      "additionalProperties": false,
       "properties": {
         "args": {
           "items": {
@@ -131,6 +136,7 @@
       "type": "object"
     },
     "Trigger": {
+      "additionalProperties": false,
       "properties": {
         "event": {
           "title": "Event",
@@ -149,6 +155,7 @@
       "type": "object"
     }
   },
+  "additionalProperties": false,
   "properties": {
     "description": {
       "anyOf": [
