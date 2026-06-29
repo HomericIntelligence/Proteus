@@ -31,25 +31,34 @@ provisioning. Branch protection is the last guardrail.
 
 ### Required status checks
 
-The following CI checks (from `.github/workflows/_required.yml` and `ci.yml`)
-are the authoritative required set. Names match the workflow job `name:` field,
-which is what GitHub uses for protection contexts:
+The authoritative required set is enforced by the
+`homeric-main-baseline` repository ruleset (see
+`gh api repos/HomericIntelligence/ProjectProteus/rulesets`). Every job
+in `.github/workflows/_required.yml` is a required context. After
+#94, the full list is:
 
-- `lint` (shellcheck + yamllint + mypy)
-- `Lint Shell Scripts` (ci.yml)
-- `TypeScript Type Check` (ci.yml)
-- `forbid-suppressions` (no-silent-failures guard)
-- `unit-tests` (placeholder; to be replaced — #88)
-- `integration-tests` (placeholder; to be expanded — #89)
-- `schema-validation` (YAML pipeline config validation)
-- `markdownlint` (documentation lint)
-- `pixi-check` (pixi lock file consistency)
-- `justfile-check` (justfile validation)
-- `symlink-check` (verify all symlinks resolve)
-- `build` (dagger build test)
-- `security/secrets-scan` (gitleaks)
-- `security/dependency-scan` (dependency audit)
+- `lint` — shellcheck, yamllint, mypy (when Python present),
+  `tsc --noEmit`, `verify-issue-92-invariants.sh` (`_required.yml`)
+- `unit-tests` (includes `tests/test-required-checks-ruleset.sh`)
+- `integration-tests`
+- `security/dependency-scan` — Trivy fs scan, fails on CRITICAL/HIGH
+- `security/secrets-scan` — Gitleaks (see #86 for exit-code gap)
+- `build`
+- `schema-validation`
+- `deps/version-sync`
+- `Lint Shell Scripts` — shellcheck on `./scripts` + `verify-issue-92-invariants.sh` (`ci.yml`)
 - `branch-protection-test` (offline branch protection verification)
+
+The following `_required.yml` jobs also run on every PR and remain
+required contexts in the ruleset, but are not part of the minimal
+gating set above: `forbid-suppressions`, `markdownlint`, `pixi-check`,
+`justfile-check`, `symlink-check`.
+
+Whenever a job is added, renamed, or removed in `_required.yml`, the
+ruleset must be updated in the same PR via `gh api -X PUT
+repos/HomericIntelligence/ProjectProteus/rulesets/15556490`. The
+`tests/test-required-checks-ruleset.sh` regression test enforces this
+invariant in CI.
 
 ## Enforcement
 
@@ -65,6 +74,36 @@ Manual operations (admin token required):
 
 Offline regression coverage runs on every PR via `_required.yml` →
 `branch-protection-test`; no token is required.
+
+## Migration note — 2026-06 (#94)
+
+`#94` adds a TypeScript type check (`tsc --noEmit`) and the
+`verify-issue-92-invariants.sh` static guard to the `lint` job in
+`.github/workflows/_required.yml`, and adds a
+`tests/test-required-checks-ruleset.sh` regression step to
+`unit-tests`. `.github/workflows/ci.yml` is **retained**: its
+`Lint Shell Scripts` job remains a required context (shellcheck on
+`./scripts` plus `verify-issue-92-invariants.sh`), alongside the
+`TypeScript Type Check` job. The `validate` job that was removed
+earlier (#106) is documented here for the historical record.
+
+Because `ci.yml` (and therefore the `"Lint Shell Scripts"` context) is
+retained, the classic branch-protection record on `main` keeps that
+context. The same #94 PR aligns the classic record with the ruleset
+contexts using:
+
+    gh api -X PUT repos/HomericIntelligence/ProjectProteus/branches/main/protection \
+      --input docs/audit-2026-04-28/classic-protection-after-94.json
+
+If the admin running the PR cannot PATCH classic protection, the
+fallback is to delete it (Ruleset becomes the sole enforcer):
+
+    gh api -X DELETE repos/HomericIntelligence/ProjectProteus/branches/main/protection
+
+Verify with:
+
+    gh api repos/HomericIntelligence/ProjectProteus/branches/main/protection
+    # → either the required-context list above, or 404 if deleted.
 
 ## See also
 

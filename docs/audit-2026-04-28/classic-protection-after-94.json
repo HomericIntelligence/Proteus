@@ -1,0 +1,24 @@
+{
+  "required_status_checks": {
+    "strict": false,
+    "checks": [
+      {"context": "lint", "app_id": 15368},
+      {"context": "forbid-suppressions", "app_id": 15368},
+      {"context": "unit-tests", "app_id": 15368},
+      {"context": "integration-tests", "app_id": 15368},
+      {"context": "security/dependency-scan", "app_id": 15368},
+      {"context": "security/secrets-scan", "app_id": 15368},
+      {"context": "build", "app_id": 15368},
+      {"context": "schema-validation", "app_id": 15368},
+      {"context": "deps/version-sync", "app_id": 15368},
+      {"context": "Lint Shell Scripts", "app_id": 15368},
+      {"context": "markdownlint", "app_id": 15368},
+      {"context": "pixi-check", "app_id": 15368},
+      {"context": "justfile-check", "app_id": 15368},
+      {"context": "symlink-check", "app_id": 15368}
+    ]
+  },
+  "enforce_admins": false,
+  "required_pull_request_reviews": null,
+  "restrictions": null
+}

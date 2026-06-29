@@ -1,0 +1,115 @@
+{
+  "name": "homeric-main-baseline",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "exclude": [],
+      "include": [
+        "refs/heads/main"
+      ]
+    }
+  },
+  "rules": [
+    {
+      "type": "deletion"
+    },
+    {
+      "type": "required_signatures"
+    },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": false,
+        "required_reviewers": [],
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": true,
+        "allowed_merge_methods": [
+          "merge",
+          "squash",
+          "rebase"
+        ]
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "do_not_enforce_on_create": false,
+        "required_status_checks": [
+          {
+            "context": "lint",
+            "integration_id": 15368
+          },
+          {
+            "context": "forbid-suppressions",
+            "integration_id": 15368
+          },
+          {
+            "context": "unit-tests",
+            "integration_id": 15368
+          },
+          {
+            "context": "integration-tests",
+            "integration_id": 15368
+          },
+          {
+            "context": "security/dependency-scan",
+            "integration_id": 15368
+          },
+          {
+            "context": "security/secrets-scan",
+            "integration_id": 15368
+          },
+          {
+            "context": "build",
+            "integration_id": 15368
+          },
+          {
+            "context": "schema-validation",
+            "integration_id": 15368
+          },
+          {
+            "context": "deps/version-sync",
+            "integration_id": 15368
+          },
+          {
+            "context": "Lint Shell Scripts",
+            "integration_id": 15368
+          },
+          {
+            "context": "markdownlint",
+            "integration_id": 15368
+          },
+          {
+            "context": "pixi-check",
+            "integration_id": 15368
+          },
+          {
+            "context": "justfile-check",
+            "integration_id": 15368
+          },
+          {
+            "context": "symlink-check",
+            "integration_id": 15368
+          }
+        ]
+      }
+    },
+    {
+      "type": "required_linear_history"
+    },
+    {
+      "type": "non_fast_forward"
+    }
+  ],
+  "bypass_actors": [
+    {
+      "actor_id": 5,
+      "actor_type": "RepositoryRole",
+      "bypass_mode": "pull_request"
+    }
+  ]
+}
