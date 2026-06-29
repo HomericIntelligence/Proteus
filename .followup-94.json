@@ -1,0 +1,13 @@
+{
+  "follow_ups": [],
+  "rejected": [
+    {
+      "title": "Improve regression test job-name extraction robustness",
+      "reason": "Test works correctly in local and CI contexts; the fragile AWK parsing (per plan review issue C) has safeguards (GH_TOKEN check) so it only affects check (c) in CI; checks (a) and (b) provide sufficient value to gate #94 compliance."
+    },
+    {
+      "title": "Update remediation-plan.md to tick #94 checkbox",
+      "reason": "Documentation task; the remediation-plan.md file does not exist in this repo yet, so the task is moot."
+    }
+  ]
+}
