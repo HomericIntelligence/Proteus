@@ -28,6 +28,8 @@ DISPATCH_MAX_ATTEMPTS="${DISPATCH_MAX_ATTEMPTS:-5}"
 DISPATCH_BASE_DELAY_MS="${DISPATCH_BASE_DELAY_MS:-1000}"
 DISPATCH_MAX_DELAY_MS="${DISPATCH_MAX_DELAY_MS:-30000}"
 DLQ_DIR="${DISPATCH_DLQ_DIR:-${GITHUB_WORKSPACE:-$PWD}/.dispatch-dlq}"
+# Allow tests to substitute a stub curl via CURL_BIN; default to the real binary.
+CURL_BIN="${CURL_BIN:-curl}"
 
 if [[ -z "${HOST}" ]]; then
     log_error "host is required (pass as \$1 or set HOST env var). See docs/dispatch-contract.md (#84, #97)."
@@ -135,7 +137,7 @@ last_code=""
 last_body=""
 while : ; do
   set +e
-  RESPONSE=$(curl --silent --connect-timeout 10 --max-time 30 \
+  RESPONSE=$("$CURL_BIN" --silent --connect-timeout 10 --max-time 30 \
     --write-out "\n%{http_code}" \
     --request POST \
     --url "https://api.github.com/repos/${MYRMIDONS_REPO}/dispatches" \
