@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
 # Regression test for issue #94 (audit §6).
-# Asserts the homeric-main-baseline ruleset's required contexts cover
-# every job in _required.yml (modulo an explicit allowlist), that the
-# `lint` job covers TypeScript via `tsc --noEmit`, and that the
-# verify-issue-92-invariants.sh static check is still invoked.
+# Asserts that every required context in the homeric-main-baseline ruleset
+# maps to a real job in _required.yml (so a stale or mistyped required
+# context can never silently block every PR), that the `lint` job covers
+# TypeScript via `tsc --noEmit`, and that the verify-issue-92-invariants.sh
+# static check is still invoked.
+#
+# Note: the ruleset is intentionally a *subset* of _required.yml jobs — the
+# non-required advisory jobs (markdownlint, pixi-check, justfile-check,
+# symlink-check, version-consistency, branch-protection-test, npm-audit,
+# forbid-suppressions) run on PRs but are not gate-blocking. We therefore
+# assert ruleset ⊆ jobs, not jobs ⊆ ruleset.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -25,30 +32,43 @@ fi
 # ruleset's required-context list. Skip this check when GH_TOKEN is
 # unset (local dev / forks); the GitHub API check then runs only in CI.
 if [[ -n "${GH_TOKEN:-}${GITHUB_TOKEN:-}" ]]; then
-  jobs=$(grep -nE "^  [a-z][a-z/_-]+:$" "$req" | awk -F: '{print $3}' | tr -d ' ')
-  # Map bash job IDs to their `name:` (slash-form) where applicable.
-  declare -A name_of
-  while read -r jobid; do
-    name=$(awk -v j="$jobid" '
-      $1=="  "j":" {found=1; next}
-      found && /^    name:/ {sub(/^    name:[ ]*/,""); print; exit}
-    ' "$req")
-    name_of["$jobid"]="${name:-$jobid}"
-  done <<<"$jobs"
+  # Extract each job's check context: a job is a 2-space-indented key under
+  # the top-level `jobs:` block. Its CI context is the job's `name:` value
+  # when present, otherwise the job id itself. Parsing starts only after the
+  # `jobs:` line so the `on:` triggers (push:/pull_request:) are not mistaken
+  # for jobs.
+  contexts_expected=$(awk '
+    $0 ~ /^jobs:[[:space:]]*$/ { injobs=1; next }
+    !injobs { next }
+    # A job id: exactly two leading spaces, then key, then colon.
+    /^  [a-zA-Z0-9_-]+:[[:space:]]*$/ {
+      jobid=$1; sub(/:$/, "", jobid)
+      name=jobid
+      next
+    }
+    # The job-level name: field (four-space indent).
+    /^    name:/ {
+      n=$0; sub(/^    name:[[:space:]]*/, "", n)
+      gsub(/^["\x27]|["\x27]$/, "", n)
+      print n
+    }
+  ' "$req" | sort -u)
 
   contexts=$(gh api \
     repos/HomericIntelligence/ProjectProteus/rulesets/15556490 \
     --jq '.rules[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context')
 
-  missing=0
-  for jobid in $jobs; do
-    ctx="${name_of[$jobid]}"
-    if ! grep -qxF "$ctx" <<<"$contexts"; then
-      echo "FAIL[#94 c]: job '$ctx' is in $req but not in ruleset" >&2
-      missing=1
+  # Every required context in the ruleset must correspond to a real job in
+  # _required.yml; a context with no matching job would block all PRs.
+  stale=0
+  while read -r ctx; do
+    [[ -z "$ctx" ]] && continue
+    if ! grep -qxF "$ctx" <<<"$contexts_expected"; then
+      echo "FAIL[#94 c]: required ruleset context '$ctx' has no job in $req" >&2
+      stale=1
     fi
-  done
-  [[ "$missing" -eq 0 ]] || exit 1
+  done <<<"$contexts"
+  [[ "$stale" -eq 0 ]] || exit 1
 fi
 
 echo "OK: required-checks ruleset matches _required.yml"
