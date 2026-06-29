@@ -148,6 +148,12 @@ jobs:
       - name: Test dispatch-apply.sh payload construction
         run: ./scripts/test/test-dispatch-apply.sh
 
+      - name: Test check-symlinks.sh broken-symlink detection
+        run: bash tests/unit/check-symlinks.test.sh
+
+      - name: Test promote-image.sh argument validation
+        run: bash tests/unit/promote-image.test.sh
+
       - name: Run required-checks ruleset regression test
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
