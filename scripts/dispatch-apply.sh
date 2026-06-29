@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 # dispatch-apply.sh — Send a repository_dispatch event to trigger Myrmidons apply.
-# Usage: HOST=<host> GITHUB_TOKEN=<token> MYRMIDONS_REPO=HomericIntelligence/Myrmidons \
+# Usage: HOST=<host> IMAGE_TAG=v1.2.3 SOURCE=AchaeanFleet \
+#            GITHUB_TOKEN=<token> MYRMIDONS_REPO=HomericIntelligence/Myrmidons \
 #            ./scripts/dispatch-apply.sh [host]
 # The HOST argument overrides the HOST env var if both are provided.
 # If neither is set, the script FAILS CLOSED (exits 1) — see docs/dispatch-contract.md (#84).
 #
 # Optional metadata env vars (forwarded into client_payload when non-empty):
 #   IMAGE_NAME, IMAGE_TAG, IMAGE_DIGEST, SOURCE_REPO
+# `image_tag` and `source` are forwarded as audit context — empty when absent (#15).
+# Payload is built with `jq` so any character (quotes, newlines, backslashes)
+# is encoded safely.
 #
 # The host is additionally validated against configs/allowed-hosts.txt (#97);
 # an unknown or malformed host also FAILS CLOSED.
@@ -17,6 +21,8 @@
 set -euo pipefail
 
 HOST="${1:-${HOST:-}}"
+IMAGE_TAG="${IMAGE_TAG:-}"
+SOURCE="${SOURCE:-}"
 MYRMIDONS_REPO="${MYRMIDONS_REPO:-HomericIntelligence/Myrmidons}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ALLOWLIST="${ALLOWED_HOSTS_FILE:-${SCRIPT_DIR}/../configs/allowed-hosts.txt}"
@@ -67,12 +73,11 @@ RESPONSE=$("$CURL_BIN" --silent --connect-timeout 10 --max-time 30 --retry 3 --r
     --data "$PAYLOAD")
 
 HTTP_CODE=$(printf '%s' "$RESPONSE" | tail -n1)
-# Use sed to drop the last line (HTTP code) — portable across GNU and BSD
-# (BSD `head` does not support the GNU-only `-n-1` extension).
+# Use sed to drop the last line (HTTP code) — portable across GNU and BSD.
 BODY=$(printf '%s' "$RESPONSE" | sed '$d')
 
 if [[ "$HTTP_CODE" -eq 204 ]]; then
-    echo "Dispatch successful (204 No Content). Myrmidons apply triggered for host: ${HOST}"
+    echo "Dispatch successful (204). Myrmidons apply triggered for host: ${HOST} (image_tag=${IMAGE_TAG} source=${SOURCE})"
 else
     echo "Dispatch failed with HTTP ${HTTP_CODE}:" >&2
     echo "$BODY" >&2

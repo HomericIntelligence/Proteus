@@ -24,12 +24,14 @@ upstream) emits `repository_dispatch: image-pushed`.
 1. Click the failed run.
 2. Open the `Log inbound event payload` step. Verify:
    - `Event type` is `image-pushed`.
-   - `Client payload` contains a `host` field.
+   - `Client payload` contains a `host` field (and, optionally, the advisory
+     `image_tag` and `source` fields forwarded for the Myrmidons audit log, #15).
 3. If `host` is empty or missing, the `Require client_payload.host` step
    will have failed with an `::error title=dispatch-contract::` annotation
    (issue #84). This is intentional fail-closed behavior — no apply is
-   dispatched. Mitigation: re-issue the upstream dispatch with `host` set,
-   per `docs/dispatch-contract.md`.
+   dispatched. The upstream emitter (AchaeanFleet) must send `host`; track via
+   AchaeanFleet#21 and ProjectProteus#15. Mitigation: re-issue the upstream
+   dispatch with `host` set, per `docs/dispatch-contract.md`.
 
 ## Step 2 — Verify the dispatch token
 
@@ -84,6 +86,17 @@ Once the cause is identified, re-run by either:
 - Manually invoking `scripts/dispatch-apply.sh <host>` from a trusted
   shell with `MYRMIDONS_DISPATCH_TOKEN` exported (this bypasses the
   audit trail; prefer one of the prior options).
+
+## Rollback — Myrmidons rejects expanded payload
+
+If Myrmidons' `agamemnon-apply` handler starts rejecting dispatches after the
+#15 change with a 4xx error citing unexpected `image_tag` or `source` fields:
+
+1. Revert `scripts/dispatch-apply.sh` to send only `{"host": "..."}` by
+   replacing the `jq` block with: `PAYLOAD=$(jq -n --arg host "${HOST}" '{event_type:"agamemnon-apply",client_payload:{host:$host}}')`
+2. File a Myrmidons issue requesting the schema accept `image_tag` and
+   `source` fields (see `docs/cross-repo-dispatch-contract.md`).
+3. Do not merge #15 until Myrmidons schema is updated.
 
 ## Post-incident
 

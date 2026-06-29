@@ -79,6 +79,7 @@ jobs:
           fi
 
       - name: Dispatch apply to Myrmidons
+        # Closes #15: forward `image_tag` and `source` for the Myrmidons audit log.
         env:
           GITHUB_TOKEN: ${{ secrets.MYRMIDONS_DISPATCH_TOKEN }}
           MYRMIDONS_REPO: HomericIntelligence/Myrmidons
