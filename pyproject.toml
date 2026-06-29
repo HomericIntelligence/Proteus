@@ -1,14 +1,16 @@
 [project]
 name = "proteus"
 version = "0.1.0"
+description = "ProjectProteus pipeline runner"
 requires-python = ">=3.11"
-dependencies = ["pydantic>=2.6", "pyyaml>=6.0"]
+dependencies = ["pydantic>=2.6", "pyyaml>=6.0", "jsonschema>=4.21"]
 
 [project.scripts]
 proteus = "proteus.__main__:main"
 
 [tool.setuptools.packages.find]
 include = ["proteus*"]
+exclude = ["tests*", "dagger*", "build*"]
 
 [build-system]
 requires = ["setuptools>=68"]

@@ -24,6 +24,14 @@ repos:
     hooks:
       - id: yamllint
         args: [-d, '{extends: relaxed, rules: {line-length: {max: 120}}}']
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0.29.4
+    hooks:
+      - id: check-jsonschema
+        name: Validate pipeline configs
+        files: ^configs/pipelines/.+\.yaml$
+        args: [--schemafile, schemas/pipeline.schema.json]
+
 
   - repo: local
     hooks:

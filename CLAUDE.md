@@ -96,7 +96,11 @@ before assuming the defect is unfixed.
 - ~~**Pipeline YAML configs are not consumed.**~~ Resolved in #82 — configs
   drive `just pipeline <NAME>` via `proteus run`, and `just validate`
   schema-validates them via `proteus validate`. See `KNOWN_LIMITATIONS.md`
-  for the `notifications` follow-up. (Refs #1, #82.)
+  for the `notifications` follow-up. (Refs #1, #82.) The `proteus.pipeline`
+  subpackage additionally validates `configs/pipelines/*.yaml` against
+  `schemas/pipeline.schema.json` (Draft-07), parses them into a `Pipeline`
+  dataclass, topologically sorts stages by `depends_on`, and runs them via
+  `just pipeline-config <CONFIG>`. See #1 (closed), #82.
 - **CI unit/integration "jobs" are YAML parsers, not tests.** On `main`
   the `unit-tests` / `integration-tests` jobs in
   `.github/workflows/_required.yml` still only YAML-parse pipeline

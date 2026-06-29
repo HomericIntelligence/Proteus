@@ -133,7 +133,7 @@ jobs:
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@5185adfbffb4bd703da3010310260805d89ebb11  # v0.9.6
         with:
-          pixi-version: v0.67.2
+          pixi-version: v0.69.0
           cache: true
 
       - name: Bootstrap proteus
@@ -141,6 +141,9 @@ jobs:
 
       - name: Run pytest
         run: pixi run pytest tests/unit -v
+
+      - name: Run pipeline-config unit tests
+        run: pixi run pytest tests/test_loader.py tests/test_topology.py tests/test_handlers.py -q
 
       - name: Install jq
         run: sudo apt-get install -y jq
@@ -163,7 +166,7 @@ jobs:
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@5185adfbffb4bd703da3010310260805d89ebb11  # v0.9.6
         with:
-          pixi-version: v0.67.2
+          pixi-version: v0.69.0
           cache: true
 
       - name: Bootstrap proteus
@@ -178,6 +181,12 @@ jobs:
             svc=$(basename "$f" .yaml)
             pixi run python -m proteus run "$f" --service "$svc" --dry-run
           done
+
+      - name: Run pipeline-config integration tests
+        run: pixi run pytest tests/test_main_integration.py -q
+
+      - name: Validate pipeline configs against pipeline schema
+        run: pixi run python -m proteus.pipeline validate 'configs/pipelines/*.yaml'
 
       - name: Assert jq present (required by dispatch-apply DLQ)
         run: command -v jq && jq --version
@@ -383,7 +392,7 @@ jobs:
         if: steps.detect.outputs.skip == 'false'
         uses: prefix-dev/setup-pixi@5185adfbffb4bd703da3010310260805d89ebb11  # v0.9.6
         with:
-          pixi-version: v0.67.2
+          pixi-version: v0.69.0
           cache: true
       - name: pixi install (locked)
         if: steps.detect.outputs.skip == 'false'
@@ -445,7 +454,7 @@ jobs:
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@5185adfbffb4bd703da3010310260805d89ebb11  # v0.9.6
         with:
-          pixi-version: v0.67.2
+          pixi-version: v0.69.0
       - name: Validate ruleset JSON
         run: pixi run jq . .github/branch-protection.main.json >/dev/null
       - name: Verify every context maps to a real workflow job name

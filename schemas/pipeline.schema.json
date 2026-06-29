@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["name", "stages"],
+  "properties": {
+    "name": {"type": "string"},
+    "description": {"type": "string"},
+    "triggers": {"type": "array", "items": {
+      "type": "object",
+      "required": ["event", "repo"],
+      "properties": {"event": {"type": "string"}, "repo": {"type": "string"}}}},
+    "registry": {"type": "object",
+      "properties": {"base": {"type": "string"}, "staging_suffix": {"type": "string"}}},
+    "stages": {"type": "array", "minItems": 1, "items": {"$ref": "#/definitions/stage"}},
+    "notifications": {"type": "object",
+      "properties": {
+        "on_failure": {"type": "array", "items": {"$ref": "#/definitions/channel"}},
+        "on_success": {"type": "array", "items": {"$ref": "#/definitions/channel"}}}}
+  },
+  "definitions": {
+    "channel": {"type": "object",
+      "required": ["channel"], "properties": {"channel": {"type": "string"}}},
+    "stage": {
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": {"type": "string"},
+        "type": {"enum": ["dagger", "skopeo", "dispatch"]},
+        "function": {"type": "string"},
+        "script": {"type": "string"},
+        "args": {"type": ["object", "array"]},
+        "depends_on": {"type": "array", "items": {"type": "string"}}
+      },
+      "oneOf": [
+        {"required": ["function", "args"],
+         "properties": {
+           "type": {"const": "dagger"},
+           "function": {"enum": ["build"]},
+           "args": {
+             "type": "object",
+             "additionalProperties": false,
+             "required": ["context", "tag"],
+             "properties": {
+               "context": {"type": "string"},
+               "tag": {"type": "string"},
+               "name": {"type": "string"},
+               "registry": {"type": "string"}}}
+         }},
+        {"required": ["function", "args"],
+         "properties": {
+           "type": {"const": "dagger"},
+           "function": {"enum": ["test"]},
+           "args": {
+             "type": "object",
+             "additionalProperties": false,
+             "required": ["command"],
+             "properties": {
+               "source": {"type": "string"},
+               "command": {"type": "string"}}}
+         }},
+        {"required": ["function", "args"],
+         "properties": {
+           "type": {"const": "dagger"},
+           "function": {"enum": ["lint"]},
+           "args": {
+             "type": "object",
+             "additionalProperties": false,
+             "properties": {"source": {"type": "string"}}}
+         }},
+        {"required": ["script", "args"],
+         "properties": {
+           "type": {"const": "skopeo"},
+           "script": {"type": "string"},
+           "args": {"type": "array", "minItems": 2,
+             "items": {"type": "string"}}}},
+        {"required": ["script", "args"],
+         "properties": {
+           "type": {"const": "dispatch"},
+           "script": {"type": "string"},
+           "args": {"type": "array", "minItems": 1,
+             "items": {"type": "string"}}}}
+      ]
+    }
+  }
+}

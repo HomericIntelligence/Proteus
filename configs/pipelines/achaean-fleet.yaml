@@ -1,3 +1,5 @@
+# yaml-language-server: $schema=../../schemas/pipeline.schema.json
+
 # Pipeline configuration for AchaeanFleet
 # Triggered on image push; runs tests, promotes to registry, then triggers Myrmidons apply.
 

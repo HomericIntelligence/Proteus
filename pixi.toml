@@ -9,6 +9,7 @@ platforms = ["linux-64"]
 just = ">=1.13"
 python = ">=3.11"
 jq = ">=1.7"
+pytest = ">=9.0"
 # skopeo is not available on conda-forge; install via system package manager:
 #   sudo apt install skopeo  (Debian/Ubuntu)
 #   brew install skopeo      (macOS)
@@ -17,6 +18,8 @@ jq = ">=1.7"
 pyyaml = ">=6.0"
 pydantic = ">=2.6"
 pytest = ">=8"
+jsonschema = ">=4.21"
+proteus = { path = ".", editable = true }
 
 [tasks]
 build    = "just build {NAME}"
@@ -26,4 +29,5 @@ lint     = "just lint"
 bootstrap-proteus = "pip install -e ."
 validate = "just validate"
 pipeline = { cmd = "python -m proteus run configs/pipelines/{NAME}.yaml --service {NAME}", depends_on = ["bootstrap-proteus"] }
+pipeline-config = { cmd = "python -m proteus.pipeline run configs/pipelines/{CONFIG}.yaml", depends_on = ["bootstrap-proteus"] }
 test-branch-protection = "bash tests/branch-protection.test.sh"

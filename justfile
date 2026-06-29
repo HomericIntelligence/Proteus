@@ -39,6 +39,12 @@ pipeline NAME HOST="hermes":
     pixi run python -m proteus run configs/pipelines/{{NAME}}.yaml \
         --service {{NAME}} --host {{HOST}}
 
+# Config-driven pipeline from configs/pipelines/<CONFIG>.yaml (topological stage run).
+# Example: just pipeline-config achaean-fleet
+pipeline-config CONFIG:
+    pixi run bootstrap-proteus
+    pixi run python -m proteus.pipeline run configs/pipelines/{{CONFIG}}.yaml
+
 # ===========================
 # Promotion
 # ===========================
