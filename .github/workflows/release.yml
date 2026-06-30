@@ -3,14 +3,67 @@ name: Release
 on:
   push:
     tags: ["v*"]
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
+  # Canonical `release` gate (Odysseus CI naming convention,
+  # docs/ci-naming-convention.md). On main push / PR this runs the release
+  # machinery in DRY-RUN mode: it validates that the current manifest version
+  # has a matching dated CHANGELOG section and that release notes can be
+  # extracted, but publishes nothing. The actual publish path is the
+  # tag-triggered `publish` job below. This job emits the canonical check-run
+  # `release` that the Ecosystem CI Status board's release column targets.
   release:
-    name: Publish GitHub Release
+    name: release
+    if: github.ref_type != 'tag'
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+
+      - name: Resolve version from manifests (no tag context)
+        id: dryver
+        run: |
+          set -euo pipefail
+          version=$(grep -E '^version[[:space:]]*=' pixi.toml | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+          if [ -z "$version" ]; then
+            echo "::error::Could not resolve version from pixi.toml"; exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Resolved release version: ${version}"
+
+      - name: Verify manifests agree (pixi.toml / dagger/package.json / CHANGELOG)
+        run: bash tests/version-consistency.test.sh
+
+      - name: Dry-run release notes extraction (no publish)
+        env:
+          VERSION: ${{ steps.dryver.outputs.version }}
+        run: |
+          set -euo pipefail
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\] - " { capture=1; next }
+            capture && /^## \[/ { exit }
+            capture && /^\[[^]]*\]: / { exit }
+            capture { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "::error::No CHANGELOG section found for version ${VERSION}"
+            exit 1
+          fi
+          echo "DRY-RUN OK: would release v${VERSION} with $(wc -l < release-notes.md) line(s) of notes. Nothing published."
+
+  publish:
+    name: Publish GitHub Release
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3

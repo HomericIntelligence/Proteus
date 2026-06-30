@@ -477,3 +477,99 @@ jobs:
 
       - name: Run version-consistency tests (issue #101)
         run: bash tests/version-consistency.test.sh
+
+  # Canonical aggregate gate for the test category (Odysseus CI naming
+  # convention, docs/ci-naming-convention.md). Emits the canonical check-run
+  # `test` that the Ecosystem CI Status board's test column targets. The split
+  # suites (unit-tests / integration-tests / branch-protection-test) are kept
+  # as their own check-runs; this job just succeeds once they all pass.
+  test:
+    name: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    needs: [unit-tests, integration-tests, branch-protection-test]
+    steps:
+      - name: All test suites passed
+        run: |
+          echo "OK: unit-tests, integration-tests, branch-protection-test all green"
+
+  # Canonical `package` gate (Odysseus CI naming convention). Builds the
+  # distributable for the installable `proteus` Python CLI (pyproject.toml
+  # declares a setuptools build-backend and a `proteus` console script).
+  package:
+    name: package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: '3.11'
+
+      - name: Install build frontend
+        run: pip install build
+
+      - name: Build sdist and wheel
+        run: python -m build --sdist --wheel --outdir dist/
+
+      - name: Verify distributable artifacts exist
+        run: |
+          set -euo pipefail
+          ls -l dist/
+          test -n "$(ls dist/proteus-*.tar.gz 2>/dev/null)" || {
+            echo "::error::No sdist produced under dist/"; exit 1; }
+          test -n "$(ls dist/proteus-*-py3-none-any.whl 2>/dev/null)" || {
+            echo "::error::No wheel produced under dist/"; exit 1; }
+          echo "OK: sdist and wheel built"
+
+      - name: Upload distributable artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: proteus-dist
+          path: dist/
+          retention-days: 7
+
+  # Canonical `install` gate (Odysseus CI naming convention). Install smoke
+  # test: pip-installs the built wheel into a clean virtualenv and exercises
+  # the `proteus` console-script entry point declared in pyproject.toml.
+  install:
+    name: install
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    needs: package
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: '3.11'
+
+      - name: Download distributable artifacts
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53  # v6.0.0
+        with:
+          name: proteus-dist
+          path: dist/
+
+      - name: Install wheel into a clean virtualenv
+        run: |
+          set -euo pipefail
+          python -m venv /tmp/proteus-venv
+          # shellcheck disable=SC1091
+          . /tmp/proteus-venv/bin/activate
+          wheel="$(ls dist/proteus-*-py3-none-any.whl)"
+          pip install "$wheel"
+          echo "Installed: $wheel"
+
+      - name: Run installed CLI entry point (smoke test)
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC1091
+          . /tmp/proteus-venv/bin/activate
+          # The `proteus` console script is the installed package's public
+          # surface. `--help` exits 0 only if the entry point resolves and
+          # argparse builds cleanly.
+          proteus --help
+          # `validate --help` exercises the validate subcommand wiring.
+          proteus validate --help
