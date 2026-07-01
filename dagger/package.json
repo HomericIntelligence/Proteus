@@ -9,7 +9,7 @@
     "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
-    "@dagger.io/dagger": "0.21.3"
+    "@dagger.io/dagger": "0.21.7"
   },
   "devDependencies": {
     "typescript": "~6.0.3",
