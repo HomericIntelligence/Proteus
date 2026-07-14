@@ -5,7 +5,7 @@
 # Boolean toggles come back as { "enabled": <bool> }; PR-review fields are inline.
 set -euo pipefail
 
-REPO="${REPO:-HomericIntelligence/ProjectProteus}"
+REPO="${REPO:-${GITHUB_REPOSITORY:-HomericIntelligence/Proteus}}"
 BRANCH="${BRANCH:-main}"
 
 if [[ -z "${GITHUB_TOKEN:-}" ]]; then
@@ -39,7 +39,10 @@ check() {
     fi
 }
 
-check '.required_pull_request_reviews.required_approving_review_count' '1'
+# Org policy (HomericIntelligence/Charybdis#279): 0 required approvals across
+# all org repos — merging without human approval is deliberate. This tracks
+# the committed .github/branch-protection.main.json, not aspirational policy.
+check '.required_pull_request_reviews.required_approving_review_count' '0'
 check '.required_pull_request_reviews.require_code_owner_reviews'      'true'
 check '.required_pull_request_reviews.dismiss_stale_reviews'           'true'
 check '.allow_force_pushes.enabled'                                    'false'
