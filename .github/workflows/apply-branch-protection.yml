@@ -30,11 +30,36 @@ jobs:
           pixi-version: v0.69.0
       - name: Validate JSON
         run: pixi run jq . .github/branch-protection.main.json >/dev/null
+      - name: Detect admin PAT
+        id: pat
+        env:
+          PAT: ${{ secrets.BRANCH_PROTECTION_PAT }}
+        run: |
+          # The legacy branch-protection API needs an admin PAT; the default
+          # GITHUB_TOKEN cannot mutate protection settings. When the secret
+          # is absent, fall back to a read-only audit of the live ruleset
+          # below (explicit if-guard per
+          # docs/runbooks/no-silent-failures.md Bucket E — never a silent
+          # skip; the fallback still fails closed on real drift).
+          if [ -n "${PAT}" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::BRANCH_PROTECTION_PAT is not configured;" \
+              "skipping legacy apply/verify; auditing live ruleset instead."
+          fi
       - name: Apply ruleset
+        if: steps.pat.outputs.present == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.BRANCH_PROTECTION_PAT }}
         run: bash scripts/apply-branch-protection.sh
       - name: Verify ruleset
+        if: steps.pat.outputs.present == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.BRANCH_PROTECTION_PAT }}
         run: bash scripts/verify-branch-protection.sh
+      - name: Audit live ruleset (read-only fallback, no PAT)
+        if: steps.pat.outputs.present == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/audit-main-ruleset.sh

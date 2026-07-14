@@ -4,7 +4,7 @@
 # Usage: GITHUB_TOKEN=<admin-pat> ./scripts/apply-branch-protection.sh
 set -euo pipefail
 
-REPO="${REPO:-HomericIntelligence/ProjectProteus}"
+REPO="${REPO:-${GITHUB_REPOSITORY:-HomericIntelligence/Proteus}}"
 BRANCH="${BRANCH:-main}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 RULESET="${SCRIPT_DIR}/../.github/branch-protection.main.json"
