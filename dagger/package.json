@@ -1,5 +1,5 @@
 {
-  "name": "project-proteus-dagger",
+  "name": "proteus-dagger",
   "version": "0.1.0",
   "description": "Dagger TypeScript pipeline module for Proteus",
   "main": "src/index.ts",

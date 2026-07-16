@@ -1,5 +1,5 @@
 [project]
-name = "project-proteus"
+name = "proteus"
 version = "0.1.0"
 description = "CI/CD pipeline automation hub for HomericIntelligence"
 channels = ["conda-forge"]
