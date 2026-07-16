@@ -59,9 +59,23 @@ if [[ -n "${GH_TOKEN:-}${GITHUB_TOKEN:-}" ]]; then
     }
   ' .github/workflows/*.yml | sort -u)
 
-  contexts=$(gh api \
-    repos/HomericIntelligence/Proteus/rulesets/15556490 \
-    --jq '.rules[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context')
+  ruleset_path="repos/HomericIntelligence/Proteus/rulesets/15556490"
+  ruleset_url="https://api.github.com/${ruleset_path}"
+  ruleset_json=""
+  if command -v gh >/dev/null 2>&1 && ruleset_json=$(gh api "$ruleset_path" 2>/dev/null); then
+    echo "OK: fetched required checks through authenticated GitHub API"
+  else
+    echo "WARN: authenticated GitHub API unavailable; retrying the public ruleset endpoint" >&2
+    ruleset_json=$(curl --fail --silent --show-error \
+      --retry 3 --retry-all-errors "$ruleset_url")
+  fi
+
+  contexts=$(jq -er '
+    [.rules[]
+      | select(.type == "required_status_checks")
+      | .parameters.required_status_checks[].context]
+    | if length > 0 then .[] else error("ruleset has no required contexts") end
+  ' <<<"$ruleset_json")
 
   # Every required context in the ruleset must correspond to a real workflow
   # job; a context with no matching job would block all PRs.
