@@ -1,6 +1,6 @@
 # Release Policy
 
-ProjectProteus releases are auto-generated from commits and published on GitHub.
+Proteus releases are auto-generated from commits and published on GitHub.
 
 ## Versioning
 
@@ -27,7 +27,7 @@ To keep generated notes readable, always use these subject prefixes:
 
 ## Viewing Releases
 
-Browse releases at: https://github.com/HomericIntelligence/ProjectProteus/releases
+Browse releases at: https://github.com/HomericIntelligence/Proteus/releases
 
 ## Related Work
 

@@ -1,18 +1,18 @@
-# AGENTS.md — ProjectProteus
+# AGENTS.md — Proteus
 
 This document specifies the multi-agent coordination protocols for
-ProjectProteus within the HomericIntelligence distributed agent mesh.
+Proteus within the HomericIntelligence distributed agent mesh.
 
 ## Role
 
-ProjectProteus is the **CI/CD hub**: it owns the Dagger TypeScript
+Proteus is the **CI/CD hub**: it owns the Dagger TypeScript
 module used to build, test, and lint workloads, and it owns the
 GitHub Actions workflows that wire those Dagger pipelines to the rest
 of the ecosystem (notably AchaeanFleet for image pushes and
 Myrmidons for cluster apply via `repository_dispatch`).
 
 ```
-AchaeanFleet ──(image-pushed event)──► ProjectProteus ──(dispatch)──► Myrmidons
+AchaeanFleet ──(image-pushed event)──► Proteus ──(dispatch)──► Myrmidons
                                             │
                                             ├─► Dagger build / test / lint
                                             └─► skopeo promote
@@ -22,7 +22,7 @@ AchaeanFleet ──(image-pushed event)──► ProjectProteus ──(dispatch)
 
 | Agent | Owns | Must not do |
 |---|---|---|
-| ProjectProteus | Dagger module, CI workflows, promote/dispatch glue | apply cluster state directly |
+| Proteus | Dagger module, CI workflows, promote/dispatch glue | apply cluster state directly |
 | ProjectAchaeanFleet | container image build and push | call Dagger functions |
 | Myrmidons | declarative cluster apply | dispatch its own work |
 | ProjectAgamemnon | agent orchestration | drive CI |
@@ -39,7 +39,7 @@ client_payload:
   tag:   <tag>                 # advisory; not yet consumed
 ```
 
-ProjectProteus reads `client_payload.host` in
+Proteus reads `client_payload.host` in
 `.github/workflows/cross-repo-dispatch.yml` and invokes
 `scripts/dispatch-apply.sh` to forward the apply request to Myrmidons.
 `host` is REQUIRED — the workflow fails closed with `::error::` if it is

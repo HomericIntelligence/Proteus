@@ -1,8 +1,8 @@
-# ProjectProteus — CLAUDE.md
+# Proteus — CLAUDE.md
 
 ## Project Overview
 
-ProjectProteus is the CI/CD pipeline automation hub for the HomericIntelligence ecosystem. It centralizes all pipeline logic using Dagger (TypeScript SDK), manages OCI image builds, runs test suites, promotes images via Skopeo, and orchestrates cross-repo GitHub Actions dispatch events.
+Proteus is the CI/CD pipeline automation hub for the HomericIntelligence ecosystem. It centralizes all pipeline logic using Dagger (TypeScript SDK), manages OCI image builds, runs test suites, promotes images via Skopeo, and orchestrates cross-repo GitHub Actions dispatch events.
 
 - Images are built and pushed to registries managed by **AchaeanFleet**.
 - Deployments are triggered in **Myrmidons** via `repository_dispatch`.
@@ -19,7 +19,7 @@ ProjectProteus is the CI/CD pipeline automation hub for the HomericIntelligence 
 ## Repository Structure
 
 ```
-ProjectProteus/
+Proteus/
 ├── dagger/
 │   ├── src/
 │   │   └── index.ts        # Dagger TypeScript module (Proteus class)
@@ -59,7 +59,7 @@ Dagger calls are made via `dagger call <function> --<args>` from the justfile.
 
 ### Cross-Repo Dispatch Flow
 
-1. AchaeanFleet pushes an image and sends `repository_dispatch` (type: `image-pushed`) to ProjectProteus.
+1. AchaeanFleet pushes an image and sends `repository_dispatch` (type: `image-pushed`) to Proteus.
 2. `cross-repo-dispatch.yml` receives the event and calls `scripts/dispatch-apply.sh`.
 3. `dispatch-apply.sh` sends a `repository_dispatch` (type: `agamemnon-apply`) to Myrmidons.
 4. Myrmidons runs `just apply` on the target host.

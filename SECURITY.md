@@ -109,7 +109,7 @@ When you report a vulnerability:
 
 ## Security Best Practices
 
-When contributing to ProjectProteus:
+When contributing to Proteus:
 
 - Never hardcode registry credentials — use Dagger secrets API or environment variables
 - Validate image tags and digests before promotion

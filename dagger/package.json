@@ -1,7 +1,7 @@
 {
-  "name": "project-proteus-dagger",
+  "name": "proteus-dagger",
   "version": "0.1.0",
-  "description": "Dagger TypeScript pipeline module for ProjectProteus",
+  "description": "Dagger TypeScript pipeline module for Proteus",
   "main": "src/index.ts",
   "scripts": {
     "build": "tsc",
@@ -12,10 +12,10 @@
     "@dagger.io/dagger": "0.21.7"
   },
   "devDependencies": {
-    "typescript": "~6.0.3",
+    "typescript": "~7.0.2",
     "ts-node": "^10.9.0",
     "tsx": "^4.23.0",
-    "@types/node": "^26.0.1"
+    "@types/node": "^26.1.1"
   },
   "engines": {
     "node": ">=20"

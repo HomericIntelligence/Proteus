@@ -1,6 +1,6 @@
 # Runbook: Cross-repo dispatch failure
 
-This runbook covers the steps to diagnose and recover when ProjectProteus
+This runbook covers the steps to diagnose and recover when Proteus
 fails to deliver an apply event to Myrmidons after AchaeanFleet (or another
 upstream) emits `repository_dispatch: image-pushed`.
 
@@ -8,13 +8,13 @@ upstream) emits `repository_dispatch: image-pushed`.
 
 - AchaeanFleet shows a successful image push, but Myrmidons does not
   receive a corresponding apply.
-- The `Cross-Repo Dispatch` workflow on ProjectProteus shows a failed run.
+- The `Cross-Repo Dispatch` workflow on Proteus shows a failed run.
 - Hosts referenced in the payload remain at the previous declarative
   state for longer than the expected reconciliation window.
 
 ## Pre-flight: confirm event reception
 
-1. Open the ProjectProteus Actions tab → `Cross-Repo Dispatch` workflow.
+1. Open the Proteus Actions tab → `Cross-Repo Dispatch` workflow.
 2. Confirm a run was created for the suspect time window. If no run
    exists, the inbound `repository_dispatch` was never accepted —
    skip to "Inbound event missing" below.
@@ -110,7 +110,7 @@ Document any temporary bump in the tracking issue.
 If no Proteus `Cross-Repo Dispatch` run exists at all:
 
 1. Check the upstream (AchaeanFleet) workflow logs to confirm it
-   actually called `repository_dispatch` against ProjectProteus.
+   actually called `repository_dispatch` against Proteus.
 2. If the call was made and rejected, GitHub's audit log will show a
    401/403; check whether the AchaeanFleet-side token has access.
 3. If the call was made and accepted but no run started, GitHub may

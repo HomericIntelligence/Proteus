@@ -11,7 +11,7 @@
 }
 
 @test "RELEASES.md points users to GitHub Releases" {
-  run grep -F "github.com/HomericIntelligence/ProjectProteus/releases" RELEASES.md
+  run grep -F "github.com/HomericIntelligence/Proteus/releases" RELEASES.md
   [ "$status" -eq 0 ]
 }
 

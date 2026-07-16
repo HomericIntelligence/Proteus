@@ -14,7 +14,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091  # lib/log.sh resolved at runtime; CI runs shellcheck without -x
 . "$SCRIPT_DIR/lib/log.sh"
 
-REPO="${REPO:-HomericIntelligence/ProjectProteus}"
+REPO="${REPO:-HomericIntelligence/Proteus}"
 BRANCH="${BRANCH:-main}"
 DRY_RUN="${DRY_RUN:-0}"
 DRY_RUN_OUT="${DRY_RUN_OUT:-/dev/stdout}"

@@ -57,7 +57,7 @@ Before removing or renaming a public surface:
 
 ## Versioning policy
 
-ProjectProteus follows [Semantic Versioning 2.0.0](https://semver.org/).
+Proteus follows [Semantic Versioning 2.0.0](https://semver.org/).
 
 Pre-1.0 caveat: while the version remains `0.y.z` the Dagger module
 API may receive breaking changes in any `MINOR` bump. Downstream

@@ -1,8 +1,8 @@
-# ProjectProteus
+# Proteus
 
-[![CI](https://github.com/HomericIntelligence/ProjectProteus/actions/workflows/ci.yml/badge.svg)](https://github.com/HomericIntelligence/ProjectProteus/actions/workflows/ci.yml)
-[![Promote](https://github.com/HomericIntelligence/ProjectProteus/actions/workflows/promote.yml/badge.svg)](https://github.com/HomericIntelligence/ProjectProteus/actions/workflows/promote.yml)
-[![Cross-Repo Dispatch](https://github.com/HomericIntelligence/ProjectProteus/actions/workflows/cross-repo-dispatch.yml/badge.svg)](https://github.com/HomericIntelligence/ProjectProteus/actions/workflows/cross-repo-dispatch.yml)
+[![CI](https://github.com/HomericIntelligence/Proteus/actions/workflows/ci.yml/badge.svg)](https://github.com/HomericIntelligence/Proteus/actions/workflows/ci.yml)
+[![Promote](https://github.com/HomericIntelligence/Proteus/actions/workflows/promote.yml/badge.svg)](https://github.com/HomericIntelligence/Proteus/actions/workflows/promote.yml)
+[![Cross-Repo Dispatch](https://github.com/HomericIntelligence/Proteus/actions/workflows/cross-repo-dispatch.yml/badge.svg)](https://github.com/HomericIntelligence/Proteus/actions/workflows/cross-repo-dispatch.yml)
 
 CI/CD pipeline automation hub for the HomericIntelligence ecosystem.
 
@@ -10,7 +10,7 @@ CI/CD pipeline automation hub for the HomericIntelligence ecosystem.
 
 ## Purpose
 
-ProjectProteus is the centralized pipeline orchestration layer for all HomericIntelligence services. It provides reusable Dagger modules for building OCI images, running test suites, and promoting images across registries. Cross-repo dispatch patterns ensure that image pushes from AchaeanFleet automatically trigger deployment workflows in Myrmidons.
+Proteus is the centralized pipeline orchestration layer for all HomericIntelligence services. It provides reusable Dagger modules for building OCI images, running test suites, and promoting images across registries. Cross-repo dispatch patterns ensure that image pushes from AchaeanFleet automatically trigger deployment workflows in Myrmidons.
 
 ## Architecture
 
@@ -25,11 +25,11 @@ ProjectProteus is the centralized pipeline orchestration layer for all HomericIn
 
 ```
 AchaeanFleet (image push)
-    └─► ProjectProteus (cross-repo-dispatch.yml receives repository_dispatch)
+    └─► Proteus (cross-repo-dispatch.yml receives repository_dispatch)
             └─► Myrmidons (triggers apply via repository_dispatch)
 ```
 
-AchaeanFleet sends a `repository_dispatch` event with type `image-pushed` to ProjectProteus. The `cross-repo-dispatch.yml` workflow picks this up and triggers a Myrmidons apply against the appropriate host.
+AchaeanFleet sends a `repository_dispatch` event with type `image-pushed` to Proteus. The `cross-repo-dispatch.yml` workflow picks this up and triggers a Myrmidons apply against the appropriate host.
 
 ## Quick Start
 
@@ -53,7 +53,7 @@ just dispatch-apply hermes
 ## Releases
 
 Release notes are auto-generated from commits and published on GitHub:
-https://github.com/HomericIntelligence/ProjectProteus/releases
+https://github.com/HomericIntelligence/Proteus/releases
 
 See [docs/releases.md](docs/releases.md) for the versioning and release-cutting policy.
 
@@ -63,12 +63,12 @@ See [docs/releases.md](docs/releases.md) for the versioning and release-cutting 
 |------|------|
 | **AchaeanFleet** | Calls Proteus for image builds and promotion after each push |
 | **Myrmidons** | Receives `repository_dispatch` on image push; runs `just apply` |
-| **ProjectProteus** | Owns all shared pipeline logic, Dagger modules, and dispatch scripts |
+| **Proteus** | Owns all shared pipeline logic, Dagger modules, and dispatch scripts |
 
 ## Repository Structure
 
 ```
-ProjectProteus/
+Proteus/
 ├── dagger/
 │   └── src/
 │       └── index.ts        # Dagger TypeScript pipeline module
