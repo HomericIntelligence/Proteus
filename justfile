@@ -73,6 +73,14 @@ branch-protection-apply:
 branch-protection-dry-run:
     DRY_RUN=1 ./scripts/branch-protection-apply.sh
 
+# Print the preserving merge-queue ruleset payload without mutating GitHub (#214)
+merge-queue-plan:
+    ./scripts/activate-merge-queue.sh --dry-run
+
+# Activate the staged merge queue with automatic rollback on failed postconditions (#214)
+merge-queue-activate:
+    ./scripts/activate-merge-queue.sh --apply
+
 # ===========================
 # Setup
 # ===========================

@@ -59,9 +59,23 @@ if [[ -n "${GH_TOKEN:-}${GITHUB_TOKEN:-}" ]]; then
     }
   ' .github/workflows/*.yml | sort -u)
 
-  contexts=$(gh api \
-    repos/HomericIntelligence/Proteus/rulesets/15556490 \
-    --jq '.rules[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context')
+  rules_path="repos/HomericIntelligence/Proteus/rules/branches/main"
+  rules_url="https://api.github.com/${rules_path}"
+  rules_json=""
+  if command -v gh >/dev/null 2>&1 && rules_json=$(gh api "$rules_path" 2>/dev/null); then
+    echo "OK: fetched effective branch rules through authenticated GitHub API"
+  else
+    echo "WARN: authenticated GitHub API unavailable; retrying the public endpoint" >&2
+    rules_json=$(curl --fail --silent --show-error \
+      --retry 3 --retry-all-errors "$rules_url")
+  fi
+
+  contexts=$(jq -er '
+    [.[]
+      | select(.type == "required_status_checks")
+      | .parameters.required_status_checks[].context]
+    | if length > 0 then .[] else error("effective rules have no required contexts") end
+  ' <<<"$rules_json")
 
   # Every required context in the ruleset must correspond to a real workflow
   # job; a context with no matching job would block all PRs.

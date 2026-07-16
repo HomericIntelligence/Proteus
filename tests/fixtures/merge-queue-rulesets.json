@@ -1,0 +1,16 @@
+[
+  {
+    "id": 15556490,
+    "name": "homeric-main-baseline",
+    "target": "branch",
+    "source_type": "Repository",
+    "enforcement": "active"
+  },
+  {
+    "id": 18221113,
+    "name": "homeric-main-extras",
+    "target": "branch",
+    "source_type": "Repository",
+    "enforcement": "active"
+  }
+]
