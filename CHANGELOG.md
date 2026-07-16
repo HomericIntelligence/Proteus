@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2026-06-03
 
-Initial versioned release of the ProjectProteus CI/CD pipeline-automation hub
+Initial versioned release of the Proteus CI/CD pipeline-automation hub
 for the HomericIntelligence ecosystem. Downstream consumers (AchaeanFleet,
 Myrmidons) may pin to git tag `v0.1.0`.
 
@@ -37,5 +37,5 @@ Myrmidons) may pin to git tag `v0.1.0`.
 - Branch protection enforces signed commits, SHA-pinned GitHub Actions (#87),
   and a Trivy filesystem scan gate.
 
-[Unreleased]: https://github.com/HomericIntelligence/ProjectProteus/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/HomericIntelligence/ProjectProteus/releases/tag/v0.1.0
+[Unreleased]: https://github.com/HomericIntelligence/Proteus/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/HomericIntelligence/Proteus/releases/tag/v0.1.0

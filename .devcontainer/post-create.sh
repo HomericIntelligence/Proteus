@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Provision ProjectProteus prerequisites inside the devcontainer.
+# Provision Proteus prerequisites inside the devcontainer.
 #
 # Installs: pixi, just, skopeo, shellcheck, Dagger CLI.
 # Used by .devcontainer/devcontainer.json's postCreateCommand.
@@ -34,8 +34,8 @@ if ! command -v dagger >/dev/null 2>&1; then
 fi
 
 log "Installing dagger node module dependencies"
-if [ -d /workspaces/ProjectProteus/dagger ]; then
-  ( cd /workspaces/ProjectProteus/dagger && { npm ci || npm install; } )
+if [ -d /workspaces/Proteus/dagger ]; then
+  ( cd /workspaces/Proteus/dagger && { npm ci || npm install; } )
 fi
 
 log "post-create complete"

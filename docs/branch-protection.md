@@ -1,14 +1,14 @@
 # Branch Protection Policy
 
 This document captures the **target** branch protection ruleset for
-ProjectProteus's default branch (`main`). The ruleset is configured in
+Proteus's default branch (`main`). The ruleset is configured in
 the GitHub UI / API by a repository admin; this file is the
 human-readable source of truth and is updated in a PR before any UI
 change.
 
 ## Why this matters
 
-ProjectProteus is the CI/CD hub for the entire HomericIntelligence
+Proteus is the CI/CD hub for the entire HomericIntelligence
 ecosystem. A regression merged directly to `main` here can fan out to
 AchaeanFleet image pushes, Myrmidons applies, and downstream agent
 provisioning. Branch protection is the last guardrail.
@@ -33,7 +33,7 @@ provisioning. Branch protection is the last guardrail.
 
 The authoritative required set is enforced by the
 `homeric-main-baseline` repository ruleset (see
-`gh api repos/HomericIntelligence/ProjectProteus/rulesets`). Every job
+`gh api repos/HomericIntelligence/Proteus/rulesets`). Every job
 in `.github/workflows/_required.yml` is a required context. After
 #94, the full list is:
 
@@ -56,7 +56,7 @@ gating set above: `forbid-suppressions`, `markdownlint`, `pixi-check`,
 
 Whenever a job is added, renamed, or removed in `_required.yml`, the
 ruleset must be updated in the same PR via `gh api -X PUT
-repos/HomericIntelligence/ProjectProteus/rulesets/15556490`. The
+repos/HomericIntelligence/Proteus/rulesets/15556490`. The
 `tests/test-required-checks-ruleset.sh` regression test enforces this
 invariant in CI.
 
@@ -92,17 +92,17 @@ retained, the classic branch-protection record on `main` keeps that
 context. The same #94 PR aligns the classic record with the ruleset
 contexts using:
 
-    gh api -X PUT repos/HomericIntelligence/ProjectProteus/branches/main/protection \
+    gh api -X PUT repos/HomericIntelligence/Proteus/branches/main/protection \
       --input docs/audit-2026-04-28/classic-protection-after-94.json
 
 If the admin running the PR cannot PATCH classic protection, the
 fallback is to delete it (Ruleset becomes the sole enforcer):
 
-    gh api -X DELETE repos/HomericIntelligence/ProjectProteus/branches/main/protection
+    gh api -X DELETE repos/HomericIntelligence/Proteus/branches/main/protection
 
 Verify with:
 
-    gh api repos/HomericIntelligence/ProjectProteus/branches/main/protection
+    gh api repos/HomericIntelligence/Proteus/branches/main/protection
     # → either the required-context list above, or 404 if deleted.
 
 ## See also

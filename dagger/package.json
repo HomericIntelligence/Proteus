@@ -1,7 +1,7 @@
 {
   "name": "project-proteus-dagger",
   "version": "0.1.0",
-  "description": "Dagger TypeScript pipeline module for ProjectProteus",
+  "description": "Dagger TypeScript pipeline module for Proteus",
   "main": "src/index.ts",
   "scripts": {
     "build": "tsc",

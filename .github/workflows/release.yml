@@ -118,6 +118,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "${{ steps.ver.outputs.tag }}" \
-            --title "ProjectProteus ${{ steps.ver.outputs.tag }}" \
+            --title "Proteus ${{ steps.ver.outputs.tag }}" \
             --notes-file release-notes.md \
             --verify-tag
