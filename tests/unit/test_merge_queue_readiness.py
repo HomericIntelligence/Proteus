@@ -55,9 +55,13 @@ def _load_workflow(path: str) -> dict[str, object]:
 def _job_contexts(workflow: dict[str, object]) -> set[str]:
     jobs = workflow["jobs"]
     assert isinstance(jobs, dict)
-    return {
-        job.get("name", job_id) for job_id, job in jobs.items() if isinstance(job, dict)
-    }
+    contexts: set[str] = set()
+    for job_id, job in jobs.items():
+        if not isinstance(job_id, str) or not isinstance(job, dict):
+            continue
+        job_name = job.get("name")
+        contexts.add(job_name if isinstance(job_name, str) else job_id)
+    return contexts
 
 
 def _assert_required_workflow_ready(
