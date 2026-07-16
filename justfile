@@ -1,5 +1,5 @@
 # ===========================
-# ProjectProteus — justfile
+# Proteus — justfile
 # CI/CD pipeline automation hub
 # ===========================
 

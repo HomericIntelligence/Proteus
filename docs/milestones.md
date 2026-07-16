@@ -1,6 +1,6 @@
 # Milestones
 
-This document defines the **canonical milestone set** for ProjectProteus.
+This document defines the **canonical milestone set** for Proteus.
 Maintainers should create matching GitHub milestones in the UI and assign
 every open issue to the appropriate one. The list here is the source of
 truth; the GitHub UI mirrors it.
@@ -40,7 +40,7 @@ Tracked priorities:
 
 ### v0.3.0 — release engineering (target: 2026-10-15)
 
-Goal: make ProjectProteus itself releasable.
+Goal: make Proteus itself releasable.
 
 Tracked priorities:
 

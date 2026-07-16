@@ -1,6 +1,6 @@
-# Contributing to ProjectProteus
+# Contributing to Proteus
 
-Thank you for your interest in contributing to ProjectProteus! This is the CI/CD pipeline
+Thank you for your interest in contributing to Proteus! This is the CI/CD pipeline
 automation hub for the [HomericIntelligence](https://github.com/HomericIntelligence) distributed
 agent mesh — it orchestrates image builds, test runs, image promotion, and Myrmidons dispatch
 via Dagger.
@@ -32,8 +32,8 @@ For an overview of the full ecosystem, see the
 
 ```bash
 # Clone the repository
-git clone https://github.com/HomericIntelligence/ProjectProteus.git
-cd ProjectProteus
+git clone https://github.com/HomericIntelligence/Proteus.git
+cd Proteus
 
 # Activate the Pixi environment
 pixi shell
@@ -69,7 +69,7 @@ just lint
 
 Before starting work:
 
-- Browse [existing issues](https://github.com/HomericIntelligence/ProjectProteus/issues)
+- Browse [existing issues](https://github.com/HomericIntelligence/Proteus/issues)
 - Comment on an issue to claim it before starting work
 - Create a new issue if one doesn't exist for your contribution
 
@@ -237,7 +237,7 @@ Please review our [Code of Conduct](CODE_OF_CONDUCT.md) before contributing.
 
 ## CI Pipeline Data & Privacy
 
-ProjectProteus CI pipelines process the following developer metadata:
+Proteus CI pipelines process the following developer metadata:
 
 - **Commit emails and GitHub usernames** — included in Git commit objects and GitHub Actions event payloads
 - **Timing metadata** — workflow run durations and timestamps recorded by GitHub Actions
@@ -258,4 +258,4 @@ full policy. Keep commit subjects in the `feat:` / `fix:` / `docs:` /
 
 ---
 
-Thank you for contributing to ProjectProteus!
+Thank you for contributing to Proteus!

@@ -1,10 +1,10 @@
 # Cross-Repo Dispatch Contract
 
-This document specifies the contract for `repository_dispatch` events flowing between homericintelligence repos and ProjectProteus.
+This document specifies the contract for `repository_dispatch` events flowing between homericintelligence repos and Proteus.
 
-## Inbound: AchaeanFleet → ProjectProteus (`image-pushed`)
+## Inbound: AchaeanFleet → Proteus (`image-pushed`)
 
-AchaeanFleet sends `image-pushed` events to ProjectProteus when a new OCI image is built and pushed to a registry.
+AchaeanFleet sends `image-pushed` events to Proteus when a new OCI image is built and pushed to a registry.
 
 | Field | Type | Required | Consumed At | Notes |
 |-------|------|----------|-------------|-------|
@@ -33,9 +33,9 @@ and again in `scripts/dispatch-apply.sh` (defence in depth, also covers
 local `just dispatch-apply` invocations). Both layers delegate to
 `scripts/validate-host.sh::validate_host`.
 
-## Outbound: ProjectProteus → Myrmidons (`agamemnon-apply`)
+## Outbound: Proteus → Myrmidons (`agamemnon-apply`)
 
-ProjectProteus forwards the dispatch to Myrmidons with the following event:
+Proteus forwards the dispatch to Myrmidons with the following event:
 
 ```json
 {
@@ -51,7 +51,7 @@ ProjectProteus forwards the dispatch to Myrmidons with the following event:
 ## Fail-Closed Behavior
 
 If `host` is absent, missing, empty, not RFC 1123-compliant, or not in the
-allowlist, ProjectProteus **fails closed**:
+allowlist, Proteus **fails closed**:
 
 1. `.github/workflows/cross-repo-dispatch.yml` — the `Require client_payload.host`
    step rejects an absent/empty host and logs `::error title=dispatch-contract::`;
@@ -105,12 +105,12 @@ To verify the inbound contract with a test dispatch:
 
 ```bash
 # Send a known-good payload (with an allowlisted host):
-gh api repos/HomericIntelligence/ProjectProteus/dispatches \
+gh api repos/HomericIntelligence/Proteus/dispatches \
   -f event_type=image-pushed \
   -f client_payload='{"host":"hermes","image":"myapp","tag":"1.0.0"}'
 
 # Send a failing payload (missing host):
-gh api repos/HomericIntelligence/ProjectProteus/dispatches \
+gh api repos/HomericIntelligence/Proteus/dispatches \
   -f event_type=image-pushed \
   -f client_payload='{"image":"myapp","tag":"1.0.0"}'
 # Expected: workflow run fails with ::error title=dispatch-contract:: annotation.

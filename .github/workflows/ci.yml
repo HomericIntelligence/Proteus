@@ -1,4 +1,4 @@
-# CI workflow for ProjectProteus
+# CI workflow for Proteus
 name: CI
 
 on:

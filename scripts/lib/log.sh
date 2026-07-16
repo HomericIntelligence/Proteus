@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# Structured logging helper for ProjectProteus shell scripts.
+# Structured logging helper for Proteus shell scripts.
 #
 # Source this file from a script:
 #
