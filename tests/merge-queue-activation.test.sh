@@ -14,6 +14,10 @@ make_shim() {
     mkdir -p "$state_dir"
     printf '0\n' >"$state_dir/put-count"
     printf '0\n' >"$state_dir/target-get-count"
+    printf '0\n' >"$state_dir/post-target-get-count"
+    printf '0\n' >"$state_dir/rollback-target-get-count"
+    printf '0\n' >"$state_dir/rulesets-get-count"
+    printf '0\n' >"$state_dir/effective-get-count"
     : >"$state_dir/calls"
 
     cat >"$SHIM_DIR/gh" <<'SHIM'
@@ -62,8 +66,19 @@ fi
 
 case "$endpoint" in
     'repos/HomericIntelligence/Proteus/rulesets?per_page=100')
-        if [[ "$mode" == "inventory-drift" && "$put_count" -eq 1 ]]; then
-            jq '.[0:1]' "$fixtures/merge-queue-rulesets.json"
+        rulesets_get_count="$(<"$state_dir/rulesets-get-count")"
+        rulesets_get_count=$((rulesets_get_count + 1))
+        printf '%s\n' "$rulesets_get_count" >"$state_dir/rulesets-get-count"
+        if [[ "$mode" == "preput-inventory-writer" \
+            && "$put_count" -eq 0 && "$rulesets_get_count" -eq 2 ]]
+        then
+            cat "$fixtures/merge-queue-concurrent-inventory.json"
+        elif [[ "$mode" == "inventory-drift" && "$put_count" -eq 1 ]]; then
+            jq '.[0:1] | .[0].updated_at = "2026-07-17T01:30:00Z"' \
+                "$fixtures/merge-queue-rulesets.json"
+        elif [[ "$put_count" -eq 1 ]]; then
+            jq '.[0].updated_at = "2026-07-17T01:30:00Z"' \
+                "$fixtures/merge-queue-rulesets.json"
         else
             cat "$fixtures/merge-queue-rulesets.json"
         fi
@@ -72,35 +87,80 @@ case "$endpoint" in
         target_get_count="$(<"$state_dir/target-get-count")"
         target_get_count=$((target_get_count + 1))
         printf '%s\n' "$target_get_count" >"$state_dir/target-get-count"
+        post_target_get_count=0
+        rollback_target_get_count=0
+        if [[ "$put_count" -eq 1 ]]; then
+            post_target_get_count="$(<"$state_dir/post-target-get-count")"
+            post_target_get_count=$((post_target_get_count + 1))
+            printf '%s\n' "$post_target_get_count" >"$state_dir/post-target-get-count"
+        elif [[ "$put_count" -ge 2 ]]; then
+            rollback_target_get_count="$(<"$state_dir/rollback-target-get-count")"
+            rollback_target_get_count=$((rollback_target_get_count + 1))
+            printf '%s\n' "$rollback_target_get_count" >"$state_dir/rollback-target-get-count"
+        fi
         if [[ "$put_count" -eq 0 ]]; then
-            cat "$fixtures/merge-queue-baseline.json"
+            if [[ "$mode" == "widened-scope" ]]; then
+                jq --slurpfile scope "$fixtures/merge-queue-widened-scope.json" \
+                    '.conditions = $scope[0]' "$fixtures/merge-queue-baseline.json"
+            elif [[ "$mode" == "target-identity-mismatch" ]]; then
+                jq '.source = "HomericIntelligence/Other"' \
+                    "$fixtures/merge-queue-baseline.json"
+            elif [[ "$mode" == "preput-target-writer" \
+                && "$target_get_count" -eq 2 ]]
+            then
+                jq --slurpfile writer "$fixtures/merge-queue-concurrent-writer-rule.json" \
+                    '.rules += $writer' "$fixtures/merge-queue-baseline.json"
+            else
+                cat "$fixtures/merge-queue-baseline.json"
+            fi
         elif [[ "$put_count" -ge 2 ]]; then
             if [[ "$mode" == "rollback-get-failure" ]]; then
                 exit 1
             elif [[ "$mode" == "rollback-readback-mismatch" \
-                && "$target_get_count" -eq 4 ]]
+                && "$rollback_target_get_count" -eq 1 ]]
             then
                 jq '.enforcement = "evaluate"' \
                     "$fixtures/merge-queue-baseline.json"
                 exit 0
             fi
             cat "$fixtures/merge-queue-baseline.json"
-        elif [[ "$mode" == "stale-once" && "$target_get_count" -eq 2 ]]; then
+        elif [[ "$mode" == "stale-once" && "$post_target_get_count" -eq 1 ]]; then
             cat "$fixtures/merge-queue-baseline.json"
-        elif [[ "$mode" == "term-after-put" ]]; then
+        elif [[ "$mode" == "term-after-put" && "$post_target_get_count" -eq 1 ]]; then
             kill -TERM "$PPID"
             sleep 0.1
             exit 1
-        elif [[ "$mode" == "get-failure" ]]; then
+        elif [[ "$mode" == "get-failure" && "$post_target_get_count" -le 2 ]]; then
             exit 1
+        elif [[ "$mode" == "rollback-concurrent-writer" ]]; then
+            jq --slurpfile queue "$queue_rule" \
+                --slurpfile writer "$fixtures/merge-queue-concurrent-writer-rule.json" \
+                '.rules += $queue | .rules += $writer' \
+                "$fixtures/merge-queue-baseline.json"
         else
             jq --slurpfile queue "$queue_rule" '.rules += $queue' \
                 "$fixtures/merge-queue-baseline.json"
         fi
         ;;
     repos/HomericIntelligence/Proteus/rules/branches/main)
+        effective_get_count="$(<"$state_dir/effective-get-count")"
+        effective_get_count=$((effective_get_count + 1))
+        printf '%s\n' "$effective_get_count" >"$state_dir/effective-get-count"
         if [[ "$put_count" -eq 0 ]]; then
-            cat "$fixtures/merge-queue-effective-before.json"
+            if [[ "$mode" == "sibling-queue" ]]; then
+                jq --slurpfile sibling "$fixtures/merge-queue-sibling-rule.json" \
+                    '. + $sibling' "$fixtures/merge-queue-effective-before.json"
+            elif [[ "$mode" == "required-context-mismatch" ]]; then
+                jq '.[3].parameters.required_status_checks |= map(select(.context != "lint"))' \
+                    "$fixtures/merge-queue-effective-before.json"
+            elif [[ "$mode" == "preput-effective-writer" \
+                && "$effective_get_count" -eq 2 ]]
+            then
+                jq '.[2].parameters.required_review_thread_resolution = false' \
+                    "$fixtures/merge-queue-effective-before.json"
+            else
+                cat "$fixtures/merge-queue-effective-before.json"
+            fi
         elif [[ "$put_count" -ge 2 ]]; then
             if [[ "$mode" == "rollback-readback-mismatch" ]]; then
                 jq '.[3].parameters.required_status_checks[0].context = "broken-lint"' \
@@ -162,6 +222,13 @@ jq -e --slurpfile queue "$QUEUE_RULE" \
     '[.rules[] | select(.type == "merge_queue")] == $queue' "$PLAN1" >/dev/null || {
     echo "FAIL case1b: dry-run payload omitted or changed queue policy"; exit 1;
 }
+jq -e '.bypass_actors == [{
+  actor_id: 5,
+  actor_type: "RepositoryRole",
+  bypass_mode: "pull_request"
+}]' "$PLAN1" >/dev/null || {
+    echo "FAIL case1c: dry-run payload did not preserve repository-role bypass"; exit 1;
+}
 
 # Case 2: successful activation performs one PUT and disarms rollback.
 STATE2="$SHIM_DIR/state-2"
@@ -169,6 +236,13 @@ make_shim success "$STATE2"
 run_script success "$STATE2" --apply >/dev/null
 [[ "$(<"$STATE2/put-count")" == "1" ]] || {
     echo "FAIL case2: successful activation should perform exactly one PUT"; exit 1;
+}
+jq -e '.bypass_actors == [{
+  actor_id: 5,
+  actor_type: "RepositoryRole",
+  bypass_mode: "pull_request"
+}]' "$STATE2/put-1.json" >/dev/null || {
+    echo "FAIL case2b: activation payload did not preserve repository-role bypass"; exit 1;
 }
 
 # Case 3: PUT succeeds but every read-back GET fails; rollback must PUT the
@@ -183,7 +257,7 @@ fi
     echo "FAIL case3b: PUT-success/GET-failure did not trigger rollback PUT"; exit 1;
 }
 [[ "$(grep -c '^api repos/HomericIntelligence/Proteus/rulesets/15556490$' \
-    "$STATE3/calls")" == "4" ]] || {
+    "$STATE3/calls")" == "6" ]] || {
     echo "FAIL case3c: post-mutation GET retries or rollback GET missing"; exit 1;
 }
 jq '{name, target, enforcement, bypass_actors: (.bypass_actors // []), conditions, rules}' \
@@ -206,8 +280,15 @@ fi
 [[ "$(<"$STATE4/put-count")" == "2" ]] || {
     echo "FAIL case4b: effective-state drift did not trigger rollback"; exit 1;
 }
+jq -e '.bypass_actors == [{
+  actor_id: 5,
+  actor_type: "RepositoryRole",
+  bypass_mode: "pull_request"
+}]' "$STATE4/put-2.json" >/dev/null || {
+    echo "FAIL case4c: rollback payload did not preserve repository-role bypass"; exit 1;
+}
 [[ ! -e "$(<"$STATE4/put-2-input-path")" ]] || {
-    echo "FAIL case4c: verified rollback did not delete its recovery snapshot"; exit 1;
+    echo "FAIL case4d: verified rollback did not delete its recovery snapshot"; exit 1;
 }
 
 # Case 5: every live ruleset must remain present after activation.
@@ -248,7 +329,7 @@ run_script stale-once "$STATE8" --apply >/dev/null
 [[ "$(<"$STATE8/put-count")" == "1" ]] || {
     echo "FAIL case8a: transient stale read-back should not trigger rollback"; exit 1;
 }
-[[ "$(<"$STATE8/target-get-count")" == "3" ]] || {
+[[ "$(<"$STATE8/target-get-count")" == "4" ]] || {
     echo "FAIL case8b: stale target read-back was not retried"; exit 1;
 }
 
@@ -306,4 +387,92 @@ SNAPSHOT10="$(sed -n 's/^CRITICAL: recovery snapshot preserved at: //p' "$ERR10"
     echo "FAIL case10g: rollback mismatch did not preserve a readable snapshot"; cat "$ERR10"; exit 1;
 }
 
-echo "OK: merge-queue activation is read-only by default and fail-safe on post-PUT failures"
+# Case 11: an applicable sibling ruleset with a queue is rejected before any
+# mutation, including in dry-run planning.
+STATE11="$SHIM_DIR/state-11"
+make_shim sibling-queue "$STATE11"
+if run_script sibling-queue "$STATE11" --dry-run >/dev/null 2>&1; then
+    echo "FAIL case11a: sibling merge queue should fail closed"; exit 1
+fi
+[[ "$(<"$STATE11/put-count")" == "0" ]] || {
+    echo "FAIL case11b: sibling merge queue performed a PUT"; exit 1;
+}
+
+# Case 12: a target widened beyond exactly refs/heads/main is rejected.
+STATE12="$SHIM_DIR/state-12"
+make_shim widened-scope "$STATE12"
+if run_script widened-scope "$STATE12" --dry-run >/dev/null 2>&1; then
+    echo "FAIL case12a: widened target scope should fail closed"; exit 1
+fi
+[[ "$(<"$STATE12/put-count")" == "0" ]] || {
+    echo "FAIL case12b: widened target scope performed a PUT"; exit 1;
+}
+
+# Case 13: target identity must be the exact Proteus repository ruleset.
+STATE13="$SHIM_DIR/state-13"
+make_shim target-identity-mismatch "$STATE13"
+if run_script target-identity-mismatch "$STATE13" --dry-run >/dev/null 2>&1; then
+    echo "FAIL case13a: mismatched target identity should fail closed"; exit 1
+fi
+
+# Case 14: the effective required-context union must equal the 13-context live
+# contract, not merely remain stable relative to an already-wrong snapshot.
+STATE14="$SHIM_DIR/state-14"
+make_shim required-context-mismatch "$STATE14"
+if run_script required-context-mismatch "$STATE14" --dry-run >/dev/null 2>&1; then
+    echo "FAIL case14a: required-context mismatch should fail closed"; exit 1
+fi
+
+# Case 15: a concurrent target writer between planning and PUT is detected by
+# the immediate full-target re-fetch and prevents mutation.
+STATE15="$SHIM_DIR/state-15"
+make_shim preput-target-writer "$STATE15"
+if run_script preput-target-writer "$STATE15" --apply >/dev/null 2>&1; then
+    echo "FAIL case15a: pre-PUT target writer should fail closed"; exit 1
+fi
+[[ "$(<"$STATE15/put-count")" == "0" ]] || {
+    echo "FAIL case15b: pre-PUT target writer was overwritten"; exit 1;
+}
+
+# Case 16: complete inventory comparison catches drift in a field omitted by
+# the old reduced inventory projection.
+STATE16="$SHIM_DIR/state-16"
+make_shim preput-inventory-writer "$STATE16"
+if run_script preput-inventory-writer "$STATE16" --apply >/dev/null 2>&1; then
+    echo "FAIL case16a: pre-PUT inventory writer should fail closed"; exit 1
+fi
+[[ "$(<"$STATE16/put-count")" == "0" ]] || {
+    echo "FAIL case16b: pre-PUT inventory writer was ignored"; exit 1;
+}
+
+# Case 17: complete effective-state comparison catches a concurrent policy
+# change immediately before PUT.
+STATE17="$SHIM_DIR/state-17"
+make_shim preput-effective-writer "$STATE17"
+if run_script preput-effective-writer "$STATE17" --apply >/dev/null 2>&1; then
+    echo "FAIL case17a: pre-PUT effective-state writer should fail closed"; exit 1
+fi
+[[ "$(<"$STATE17/put-count")" == "0" ]] || {
+    echo "FAIL case17b: pre-PUT effective-state writer was ignored"; exit 1;
+}
+
+# Case 18: if another writer changes the target after our PUT, rollback must
+# refuse to overwrite that state and preserve the recovery payload.
+STATE18="$SHIM_DIR/state-18"
+ERR18="$SHIM_DIR/error-18"
+make_shim rollback-concurrent-writer "$STATE18"
+if run_script rollback-concurrent-writer "$STATE18" --apply >/dev/null 2>"$ERR18"; then
+    echo "FAIL case18a: rollback contention should fail activation"; exit 1
+fi
+[[ "$(<"$STATE18/put-count")" == "1" ]] || {
+    echo "FAIL case18b: rollback overwrote concurrent target state"; exit 1;
+}
+grep -q "refusing rollback PUT" "$ERR18" || {
+    echo "FAIL case18c: rollback contention was not reported"; cat "$ERR18"; exit 1;
+}
+SNAPSHOT18="$(sed -n 's/^CRITICAL: recovery snapshot preserved at: //p' "$ERR18" | tail -n 1)"
+[[ -n "$SNAPSHOT18" && -f "$SNAPSHOT18" ]] || {
+    echo "FAIL case18d: rollback contention did not preserve recovery payload"; exit 1;
+}
+
+echo "OK: 18 merge-queue activation cases preserve policy and fail closed on concurrent changes"

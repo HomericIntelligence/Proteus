@@ -5,6 +5,13 @@
   "source_type": "Repository",
   "source": "HomericIntelligence/Proteus",
   "enforcement": "active",
+  "bypass_actors": [
+    {
+      "actor_id": 5,
+      "actor_type": "RepositoryRole",
+      "bypass_mode": "pull_request"
+    }
+  ],
   "conditions": {
     "ref_name": {
       "exclude": [],

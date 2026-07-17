@@ -1,0 +1,8 @@
+{
+  "type": "required_deployments",
+  "parameters": {
+    "required_deployment_environments": [
+      "production"
+    ]
+  }
+}

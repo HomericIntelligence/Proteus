@@ -6,6 +6,9 @@ set -euo pipefail
 REPO="${REPO:-HomericIntelligence/Proteus}"
 BRANCH="${BRANCH:-main}"
 RULESET_NAME="${RULESET_NAME:-homeric-main-baseline}"
+EXPECTED_REPO="HomericIntelligence/Proteus"
+EXPECTED_BRANCH="main"
+EXPECTED_RULESET_NAME="homeric-main-baseline"
 VERIFY_ATTEMPTS="${MERGE_QUEUE_VERIFY_ATTEMPTS:-5}"
 VERIFY_DELAY_SECONDS="${MERGE_QUEUE_VERIFY_DELAY_SECONDS:-2}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -40,15 +43,20 @@ work_dir="$(mktemp -d)"
 rulesets_before="$work_dir/rulesets-before.json"
 rulesets_after="$work_dir/rulesets-after.json"
 target_before="$work_dir/target-before.json"
+target_preput="$work_dir/target-preput.json"
 target_after="$work_dir/target-after.json"
+rollback_guard_target="$work_dir/rollback-guard-target.json"
+rollback_guard_writable="$work_dir/rollback-guard-writable.json"
 rollback_target_after="$work_dir/rollback-target-after.json"
 rollback_target_writable="$work_dir/rollback-target-writable.json"
 rollback_payload="$work_dir/rollback.json"
 desired_payload="$work_dir/desired.json"
 effective_before="$work_dir/effective-before.json"
+effective_preput="$work_dir/effective-preput.json"
 effective_after="$work_dir/effective-after.json"
 rollback_effective_after="$work_dir/rollback-effective-after.json"
 expected_effective_after="$work_dir/effective-expected.json"
+rulesets_preput="$work_dir/rulesets-preput.json"
 rollback_armed=0
 target_endpoint=""
 
@@ -60,31 +68,46 @@ rollback_on_exit() {
     trap - EXIT INT TERM
     if [[ "$rollback_armed" -eq 1 ]]; then
         rollback_armed=0
-        echo "Activation failed after mutation; attempting rollback." >&2
-        if gh api --method PUT "$target_endpoint" \
-            --input "$rollback_payload" >/dev/null
+        echo "Activation failed after mutation; checking whether rollback is still safe." >&2
+        if ! api_get_with_retry "$target_endpoint" "$rollback_guard_target" \
+            "rollback guard target ruleset"
         then
-            for ((attempt = 1; attempt <= VERIFY_ATTEMPTS; attempt++)); do
-                if verify_rollback_once; then
-                    rollback_verified=1
-                    break
+            echo "CRITICAL: live target state is unavailable; refusing rollback PUT." >&2
+            status=1
+            preserve_recovery=1
+        else
+            writable_ruleset_payload "$rollback_guard_target" >"$rollback_guard_writable"
+            if [[ "$(jq -Sc . "$desired_payload")" != \
+                "$(jq -Sc . "$rollback_guard_writable")" ]]
+            then
+                echo "CRITICAL: live target no longer equals the attempted desired state; refusing rollback PUT." >&2
+                status=1
+                preserve_recovery=1
+            elif gh api --method PUT "$target_endpoint" \
+                --input "$rollback_payload" >/dev/null
+            then
+                for ((attempt = 1; attempt <= VERIFY_ATTEMPTS; attempt++)); do
+                    if verify_rollback_once; then
+                        rollback_verified=1
+                        break
+                    fi
+                    echo "WARN: rollback verification incomplete (attempt $attempt/$VERIFY_ATTEMPTS)." >&2
+                    if ((attempt < VERIFY_ATTEMPTS)); then
+                        sleep "$VERIFY_DELAY_SECONDS"
+                    fi
+                done
+                if [[ "$rollback_verified" -eq 1 ]]; then
+                    echo "Rollback restored the pre-activation target ruleset payload, effective rules, and required contexts." >&2
+                else
+                    echo "CRITICAL: rollback could not be verified; live ruleset state requires operator review." >&2
+                    status=1
+                    preserve_recovery=1
                 fi
-                echo "WARN: rollback verification incomplete (attempt $attempt/$VERIFY_ATTEMPTS)." >&2
-                if ((attempt < VERIFY_ATTEMPTS)); then
-                    sleep "$VERIFY_DELAY_SECONDS"
-                fi
-            done
-            if [[ "$rollback_verified" -eq 1 ]]; then
-                echo "Rollback restored the pre-activation target ruleset payload, effective rules, and required contexts." >&2
             else
-                echo "CRITICAL: rollback could not be verified; live ruleset state requires operator review." >&2
+                echo "CRITICAL: rollback PUT failed; live ruleset state requires operator review." >&2
                 status=1
                 preserve_recovery=1
             fi
-        else
-            echo "CRITICAL: rollback PUT failed; live ruleset state requires operator review." >&2
-            status=1
-            preserve_recovery=1
         fi
     fi
     if [[ "$preserve_recovery" -eq 1 ]]; then
@@ -118,7 +141,14 @@ api_get_with_retry() {
 }
 
 normalize_ruleset_inventory() {
-    jq -Sc '[.[] | {id, name, target, source_type, enforcement}] | sort_by(.id)' "$1"
+    jq -Sc 'sort_by(.id)' "$1"
+}
+
+normalize_postput_ruleset_inventory() {
+    jq -Sc --argjson target_id "$target_id" '
+      map(if .id == $target_id then del(.updated_at) else . end)
+      | sort_by(.id)
+    ' "$1"
 }
 
 normalize_effective_rules() {
@@ -128,8 +158,27 @@ normalize_effective_rules() {
 required_contexts() {
     jq -Sc '[.[]
       | select(.type == "required_status_checks")
-      | .parameters.required_status_checks[]]
+      | .parameters.required_status_checks[]
+      | {context, integration_id}]
       | sort_by(.context, .integration_id)' "$1"
+}
+
+expected_required_contexts() {
+    jq -ncS '[
+      {context: "Lint Shell Scripts", integration_id: 15368},
+      {context: "build", integration_id: 15368},
+      {context: "deps/version-sync", integration_id: 15368},
+      {context: "install", integration_id: 15368},
+      {context: "integration-tests", integration_id: 15368},
+      {context: "lint", integration_id: 15368},
+      {context: "package", integration_id: 15368},
+      {context: "release", integration_id: 15368},
+      {context: "schema-validation", integration_id: 15368},
+      {context: "security/dependency-scan", integration_id: 15368},
+      {context: "security/secrets-scan", integration_id: 15368},
+      {context: "test", integration_id: 15368},
+      {context: "unit-tests", integration_id: 15368}
+    ] | sort_by(.context, .integration_id)'
 }
 
 writable_ruleset_payload() {
@@ -141,6 +190,97 @@ writable_ruleset_payload() {
       conditions,
       rules
     }' "$1"
+}
+
+validate_live_contract() {
+    local inventory="$1"
+    local target="$2"
+    local effective="$3"
+    local target_id="$4"
+
+    if ! jq -e \
+        --arg repo "$EXPECTED_REPO" \
+        --arg name "$EXPECTED_RULESET_NAME" \
+        --arg ref "refs/heads/$EXPECTED_BRANCH" \
+        --argjson id "$target_id" '
+          .id == $id
+          and .name == $name
+          and .target == "branch"
+          and .source_type == "Repository"
+          and .source == $repo
+          and .enforcement == "active"
+          and .conditions == {
+            ref_name: {exclude: [], include: [$ref]}
+          }
+          and any((.bypass_actors // [])[];
+            .actor_id == 5
+            and .actor_type == "RepositoryRole"
+            and .bypass_mode == "pull_request")
+        ' "$target" >/dev/null
+    then
+        echo "Error: target ruleset identity, main-only scope, or repository-role bypass does not match the activation contract." >&2
+        return 1
+    fi
+
+    if [[ "$(jq -r --arg name "$EXPECTED_RULESET_NAME" \
+        --argjson id "$target_id" '
+          [.[] | select(
+            .id == $id
+            and .name == $name
+            and .target == "branch"
+            and .source_type == "Repository"
+            and .enforcement == "active"
+          )] | length
+        ' "$inventory")" -ne 1 ]]
+    then
+        echo "Error: target ruleset inventory identity changed or is ambiguous." >&2
+        return 1
+    fi
+
+    if [[ "$(required_contexts "$effective")" != \
+        "$(expected_required_contexts)" ]]
+    then
+        echo "Error: effective required contexts do not match Proteus's exact 13-context contract." >&2
+        return 1
+    fi
+
+    if [[ "$(jq '[.[] | select(.type == "merge_queue")] | length' \
+        "$effective")" -ne 0 ]]
+    then
+        echo "Error: an applicable ruleset already supplies a merge_queue rule; refusing layered activation." >&2
+        return 1
+    fi
+}
+
+verify_preput_snapshot() {
+    api_get_with_retry "$target_endpoint" "$target_preput" \
+        "pre-PUT target ruleset"
+    api_get_with_retry "$rulesets_endpoint" "$rulesets_preput" \
+        "pre-PUT ruleset inventory"
+    api_get_with_retry "$effective_endpoint" "$effective_preput" \
+        "pre-PUT effective branch rules"
+
+    if [[ "$(jq -Sc . "$target_before")" != \
+        "$(jq -Sc . "$target_preput")" ]]
+    then
+        echo "Error: target ruleset changed concurrently before PUT." >&2
+        return 1
+    fi
+    if [[ "$(normalize_ruleset_inventory "$rulesets_before")" != \
+        "$(normalize_ruleset_inventory "$rulesets_preput")" ]]
+    then
+        echo "Error: ruleset inventory changed concurrently before PUT." >&2
+        return 1
+    fi
+    if [[ "$(normalize_effective_rules "$effective_before")" != \
+        "$(normalize_effective_rules "$effective_preput")" ]]
+    then
+        echo "Error: effective branch rules changed concurrently before PUT." >&2
+        return 1
+    fi
+
+    validate_live_contract "$rulesets_preput" "$target_preput" \
+        "$effective_preput" "$target_id"
 }
 
 verify_rollback_once() {
@@ -191,8 +331,10 @@ verify_postconditions_once() {
         echo "WARN: post-mutation ruleset inventory GET failed." >&2
         return 1
     fi
-    if [[ "$(normalize_ruleset_inventory "$rulesets_before")" != \
-        "$(normalize_ruleset_inventory "$rulesets_after")" ]]
+    # PUT legitimately advances the target summary's updated_at. Compare every
+    # other inventory field, including every field on sibling rulesets.
+    if [[ "$(normalize_postput_ruleset_inventory "$rulesets_before")" != \
+        "$(normalize_postput_ruleset_inventory "$rulesets_after")" ]]
     then
         echo "WARN: live ruleset inventory differs from its pre-mutation state." >&2
         return 1
@@ -218,6 +360,13 @@ verify_postconditions_once() {
 
 rulesets_endpoint="repos/${REPO}/rulesets?per_page=100"
 effective_endpoint="repos/${REPO}/rules/branches/${BRANCH}"
+if [[ "$REPO" != "$EXPECTED_REPO" \
+    || "$BRANCH" != "$EXPECTED_BRANCH" \
+    || "$RULESET_NAME" != "$EXPECTED_RULESET_NAME" ]]
+then
+    echo "Error: activation is pinned to ${EXPECTED_REPO}@${EXPECTED_BRANCH} ruleset ${EXPECTED_RULESET_NAME}." >&2
+    exit 1
+fi
 api_get_with_retry "$rulesets_endpoint" "$rulesets_before" "ruleset inventory"
 
 target_id="$(jq -er --arg name "$RULESET_NAME" '
@@ -235,6 +384,9 @@ target_endpoint="repos/${REPO}/rulesets/${target_id}"
 
 api_get_with_retry "$target_endpoint" "$target_before" "target ruleset"
 api_get_with_retry "$effective_endpoint" "$effective_before" "effective branch rules"
+
+validate_live_contract "$rulesets_before" "$target_before" \
+    "$effective_before" "$target_id"
 
 writable_ruleset_payload "$target_before" >"$rollback_payload"
 
@@ -263,9 +415,15 @@ if [[ "$mode" == "--dry-run" ]]; then
     exit 0
 fi
 
-# Arm rollback before the first mutating request. Any subsequent failure,
-# including an ambiguous PUT response or failed read-back, restores this exact
-# pre-mutation payload through the EXIT trap.
+# GitHub's ruleset API does not expose a transaction across the target,
+# inventory, and effective state. Re-read all three immediately before PUT and
+# require exact equality with the snapshots used to build the desired payload.
+verify_preput_snapshot
+
+# Arm rollback before the first mutating request. On any subsequent failure,
+# including an ambiguous PUT response or failed read-back, the EXIT trap first
+# proves the live target still equals our desired payload before restoring the
+# exact pre-mutation payload.
 rollback_armed=1
 gh api --method PUT "$target_endpoint" --input "$desired_payload" >/dev/null
 

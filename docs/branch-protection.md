@@ -93,7 +93,7 @@ rules first and patch only the applicable live ruleset while preserving every
 sibling rule and repository-specific context. The live regression test
 `tests/test-required-checks-ruleset.sh` checks the effective union;
 `tests/merge-queue-activation.test.sh` covers offline preservation and rollback
-with 10 numbered fail-safe cases. The activation implementation is carried by
+with 18 numbered fail-safe cases. The activation implementation is carried by
 commit `c4c6b19e0e055b21898b5a45f4984ae5e5fc24e9` and its parent
 `94da0478907c01551a6bae29f3d4645e8e886f30`; both commits have verified ED25519
 signatures and valid DCO `Signed-off-by` trailers.
@@ -115,13 +115,18 @@ just merge-queue-activate
 
 `scripts/activate-merge-queue.sh` discovers the active repository ruleset by
 name and reads the full target payload, complete ruleset inventory, and
-effective `main` rules before mutation. It arms an EXIT-trap rollback before
-the PUT, retries every post-mutation read, verifies the target read-back,
-confirms every live ruleset is still present, compares the complete effective
-branch state against the pre-state plus the one staged queue rule, and checks
-that all required contexts are byte-for-byte equivalent after normalization.
-Rollback is disarmed only after every postcondition passes. A PUT-success / GET-
-failure path therefore re-applies the exact pre-mutation target payload.
+effective `main` rules before mutation. It rejects any applicable pre-existing
+merge queue, validates the exact Proteus target identity, `main`-only scope,
+repository-role bypass, and 13-context contract, then re-fetches and compares
+all three complete snapshots immediately before PUT. It arms an EXIT-trap
+rollback before the PUT, retries every post-mutation read, verifies the target
+read-back, confirms every live ruleset is still present, compares the complete
+effective branch state against the pre-state plus the one staged queue rule,
+and checks that all required contexts are byte-for-byte equivalent after
+normalization. Rollback is disarmed only after every postcondition passes. On
+failure, rollback first proves that the live writable target still exactly
+equals the attempted desired payload; if another writer has changed it, the
+script refuses to overwrite that state and preserves the recovery snapshot.
 
 Central rollout work in [Odysseus PR #417](https://github.com/HomericIntelligence/Odysseus/pull/417),
 under umbrella [issue #386](https://github.com/HomericIntelligence/Odysseus/issues/386),
