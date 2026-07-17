@@ -41,16 +41,22 @@ rulesets_before="$work_dir/rulesets-before.json"
 rulesets_after="$work_dir/rulesets-after.json"
 target_before="$work_dir/target-before.json"
 target_after="$work_dir/target-after.json"
+rollback_target_after="$work_dir/rollback-target-after.json"
+rollback_target_writable="$work_dir/rollback-target-writable.json"
 rollback_payload="$work_dir/rollback.json"
 desired_payload="$work_dir/desired.json"
 effective_before="$work_dir/effective-before.json"
 effective_after="$work_dir/effective-after.json"
+rollback_effective_after="$work_dir/rollback-effective-after.json"
 expected_effective_after="$work_dir/effective-expected.json"
 rollback_armed=0
 target_endpoint=""
 
 rollback_on_exit() {
     local status=$?
+    local preserve_recovery=0
+    local rollback_verified=0
+    local attempt
     trap - EXIT INT TERM
     if [[ "$rollback_armed" -eq 1 ]]; then
         rollback_armed=0
@@ -58,13 +64,34 @@ rollback_on_exit() {
         if gh api --method PUT "$target_endpoint" \
             --input "$rollback_payload" >/dev/null
         then
-            echo "Rollback restored the pre-activation target ruleset payload." >&2
+            for ((attempt = 1; attempt <= VERIFY_ATTEMPTS; attempt++)); do
+                if verify_rollback_once; then
+                    rollback_verified=1
+                    break
+                fi
+                echo "WARN: rollback verification incomplete (attempt $attempt/$VERIFY_ATTEMPTS)." >&2
+                if ((attempt < VERIFY_ATTEMPTS)); then
+                    sleep "$VERIFY_DELAY_SECONDS"
+                fi
+            done
+            if [[ "$rollback_verified" -eq 1 ]]; then
+                echo "Rollback restored the pre-activation target ruleset payload, effective rules, and required contexts." >&2
+            else
+                echo "CRITICAL: rollback could not be verified; live ruleset state requires operator review." >&2
+                status=1
+                preserve_recovery=1
+            fi
         else
             echo "CRITICAL: rollback PUT failed; live ruleset state requires operator review." >&2
             status=1
+            preserve_recovery=1
         fi
     fi
-    rm -rf "$work_dir"
+    if [[ "$preserve_recovery" -eq 1 ]]; then
+        echo "CRITICAL: recovery snapshot preserved at: $rollback_payload" >&2
+    else
+        rm -rf "$work_dir"
+    fi
     exit "$status"
 }
 trap rollback_on_exit EXIT
@@ -105,11 +132,7 @@ required_contexts() {
       | sort_by(.context, .integration_id)' "$1"
 }
 
-verify_postconditions_once() {
-    if ! gh api "$target_endpoint" >"$target_after"; then
-        echo "WARN: post-mutation target ruleset GET failed." >&2
-        return 1
-    fi
+writable_ruleset_payload() {
     jq '{
       name,
       target,
@@ -117,7 +140,46 @@ verify_postconditions_once() {
       bypass_actors: (.bypass_actors // []),
       conditions,
       rules
-    }' "$target_after" >"$work_dir/target-after-writable.json"
+    }' "$1"
+}
+
+verify_rollback_once() {
+    if ! gh api "$target_endpoint" >"$rollback_target_after"; then
+        echo "WARN: rollback target ruleset GET failed." >&2
+        return 1
+    fi
+    writable_ruleset_payload "$rollback_target_after" >"$rollback_target_writable"
+    if [[ "$(jq -Sc . "$rollback_payload")" != \
+        "$(jq -Sc . "$rollback_target_writable")" ]]
+    then
+        echo "WARN: rollback target ruleset read-back differs from the recovery payload." >&2
+        return 1
+    fi
+
+    if ! gh api "$effective_endpoint" >"$rollback_effective_after"; then
+        echo "WARN: rollback effective branch rules GET failed." >&2
+        return 1
+    fi
+    if [[ "$(normalize_effective_rules "$effective_before")" != \
+        "$(normalize_effective_rules "$rollback_effective_after")" ]]
+    then
+        echo "WARN: rollback effective branch rules differ from their pre-mutation state." >&2
+        return 1
+    fi
+    if [[ "$(required_contexts "$effective_before")" != \
+        "$(required_contexts "$rollback_effective_after")" ]]
+    then
+        echo "WARN: rollback required contexts differ from their pre-mutation state." >&2
+        return 1
+    fi
+}
+
+verify_postconditions_once() {
+    if ! gh api "$target_endpoint" >"$target_after"; then
+        echo "WARN: post-mutation target ruleset GET failed." >&2
+        return 1
+    fi
+    writable_ruleset_payload "$target_after" >"$work_dir/target-after-writable.json"
     if ! diff -u <(jq -S . "$desired_payload") \
         <(jq -S . "$work_dir/target-after-writable.json") >/dev/null
     then
@@ -174,14 +236,7 @@ target_endpoint="repos/${REPO}/rulesets/${target_id}"
 api_get_with_retry "$target_endpoint" "$target_before" "target ruleset"
 api_get_with_retry "$effective_endpoint" "$effective_before" "effective branch rules"
 
-jq '{
-  name,
-  target,
-  enforcement,
-  bypass_actors: (.bypass_actors // []),
-  conditions,
-  rules
-}' "$target_before" >"$rollback_payload"
+writable_ruleset_payload "$target_before" >"$rollback_payload"
 
 queue_count="$(jq '[.rules[] | select(.type == "merge_queue")] | length' \
     "$rollback_payload")"

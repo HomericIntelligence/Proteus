@@ -50,6 +50,7 @@ put_count="$(<"$state_dir/put-count")"
 if [[ "$method" == "PUT" ]]; then
     put_count=$((put_count + 1))
     printf '%s\n' "$put_count" >"$state_dir/put-count"
+    printf '%s\n' "$input" >"$state_dir/put-${put_count}-input-path"
     cp "$input" "$state_dir/put-${put_count}.json"
     if [[ "$mode" == "term-during-put" && "$put_count" -eq 1 ]]; then
         kill -TERM "$PPID"
@@ -71,7 +72,18 @@ case "$endpoint" in
         target_get_count="$(<"$state_dir/target-get-count")"
         target_get_count=$((target_get_count + 1))
         printf '%s\n' "$target_get_count" >"$state_dir/target-get-count"
-        if [[ "$put_count" -eq 0 || "$put_count" -ge 2 ]]; then
+        if [[ "$put_count" -eq 0 ]]; then
+            cat "$fixtures/merge-queue-baseline.json"
+        elif [[ "$put_count" -ge 2 ]]; then
+            if [[ "$mode" == "rollback-get-failure" ]]; then
+                exit 1
+            elif [[ "$mode" == "rollback-readback-mismatch" \
+                && "$target_get_count" -eq 4 ]]
+            then
+                jq '.enforcement = "evaluate"' \
+                    "$fixtures/merge-queue-baseline.json"
+                exit 0
+            fi
             cat "$fixtures/merge-queue-baseline.json"
         elif [[ "$mode" == "stale-once" && "$target_get_count" -eq 2 ]]; then
             cat "$fixtures/merge-queue-baseline.json"
@@ -87,9 +99,19 @@ case "$endpoint" in
         fi
         ;;
     repos/HomericIntelligence/Proteus/rules/branches/main)
-        if [[ "$put_count" -eq 0 || "$put_count" -ge 2 ]]; then
+        if [[ "$put_count" -eq 0 ]]; then
             cat "$fixtures/merge-queue-effective-before.json"
-        elif [[ "$mode" == "context-drift" ]]; then
+        elif [[ "$put_count" -ge 2 ]]; then
+            if [[ "$mode" == "rollback-readback-mismatch" ]]; then
+                jq '.[3].parameters.required_status_checks[0].context = "broken-lint"' \
+                    "$fixtures/merge-queue-effective-before.json"
+            else
+                cat "$fixtures/merge-queue-effective-before.json"
+            fi
+        elif [[ "$mode" == "context-drift" \
+            || "$mode" == "rollback-get-failure" \
+            || "$mode" == "rollback-readback-mismatch" ]]
+        then
             jq --slurpfile queue "$queue_rule" '
               .[3].parameters.required_status_checks[0].context = "broken-lint"
               | . + [($queue[0] + {
@@ -161,8 +183,8 @@ fi
     echo "FAIL case3b: PUT-success/GET-failure did not trigger rollback PUT"; exit 1;
 }
 [[ "$(grep -c '^api repos/HomericIntelligence/Proteus/rulesets/15556490$' \
-    "$STATE3/calls")" == "3" ]] || {
-    echo "FAIL case3c: post-mutation GET was not retried twice"; exit 1;
+    "$STATE3/calls")" == "4" ]] || {
+    echo "FAIL case3c: post-mutation GET retries or rollback GET missing"; exit 1;
 }
 jq '{name, target, enforcement, bypass_actors: (.bypass_actors // []), conditions, rules}' \
     "$FIXTURES/merge-queue-baseline.json" >"$SHIM_DIR/expected-rollback.json"
@@ -183,6 +205,9 @@ if run_script context-drift "$STATE4" --apply >/dev/null 2>&1; then
 fi
 [[ "$(<"$STATE4/put-count")" == "2" ]] || {
     echo "FAIL case4b: effective-state drift did not trigger rollback"; exit 1;
+}
+[[ ! -e "$(<"$STATE4/put-2-input-path")" ]] || {
+    echo "FAIL case4c: verified rollback did not delete its recovery snapshot"; exit 1;
 }
 
 # Case 5: every live ruleset must remain present after activation.
@@ -225,6 +250,60 @@ run_script stale-once "$STATE8" --apply >/dev/null
 }
 [[ "$(<"$STATE8/target-get-count")" == "3" ]] || {
     echo "FAIL case8b: stale target read-back was not retried"; exit 1;
+}
+
+# Case 9: a successful rollback PUT followed by unavailable rollback GETs is
+# critical unverified recovery, not restoration, and preserves the snapshot.
+STATE9="$SHIM_DIR/state-9"
+ERR9="$SHIM_DIR/error-9"
+make_shim rollback-get-failure "$STATE9"
+if run_script rollback-get-failure "$STATE9" --apply >/dev/null 2>"$ERR9"; then
+    echo "FAIL case9a: unavailable rollback verification must fail"; exit 1
+fi
+[[ "$(<"$STATE9/put-count")" == "2" ]] || {
+    echo "FAIL case9b: rollback verification failure should not issue another PUT"; exit 1;
+}
+grep -q "CRITICAL: rollback could not be verified" "$ERR9" || {
+    echo "FAIL case9c: unavailable rollback was not reported as critical"; cat "$ERR9"; exit 1;
+}
+! grep -q "Rollback restored" "$ERR9" || {
+    echo "FAIL case9d: unavailable rollback was falsely reported as restored"; exit 1;
+}
+SNAPSHOT9="$(sed -n 's/^CRITICAL: recovery snapshot preserved at: //p' "$ERR9" | tail -n 1)"
+[[ -n "$SNAPSHOT9" && -f "$SNAPSHOT9" ]] || {
+    echo "FAIL case9e: unavailable rollback did not preserve a readable snapshot"; cat "$ERR9"; exit 1;
+}
+diff -u <(jq -S . "$SHIM_DIR/expected-rollback.json") \
+    <(jq -S . "$SNAPSHOT9") || {
+    echo "FAIL case9f: preserved snapshot differs from the pre-mutation payload"; exit 1;
+}
+
+# Case 10: a stale rollback target payload is retried, but the later target
+# match plus effective-rule mismatch is still critical unverified recovery.
+STATE10="$SHIM_DIR/state-10"
+ERR10="$SHIM_DIR/error-10"
+make_shim rollback-readback-mismatch "$STATE10"
+if run_script rollback-readback-mismatch "$STATE10" --apply >/dev/null 2>"$ERR10"; then
+    echo "FAIL case10a: mismatched rollback read-back must fail"; exit 1
+fi
+[[ "$(<"$STATE10/put-count")" == "2" ]] || {
+    echo "FAIL case10b: rollback mismatch should not issue another PUT"; exit 1;
+}
+grep -q "CRITICAL: rollback could not be verified" "$ERR10" || {
+    echo "FAIL case10c: rollback mismatch was not reported as critical"; cat "$ERR10"; exit 1;
+}
+grep -q "rollback target ruleset read-back differs" "$ERR10" || {
+    echo "FAIL case10d: normalized rollback payload mismatch was not detected"; cat "$ERR10"; exit 1;
+}
+grep -q "rollback effective branch rules differ" "$ERR10" || {
+    echo "FAIL case10e: effective rollback mismatch was not detected"; cat "$ERR10"; exit 1;
+}
+! grep -q "Rollback restored" "$ERR10" || {
+    echo "FAIL case10f: rollback mismatch was falsely reported as restored"; exit 1;
+}
+SNAPSHOT10="$(sed -n 's/^CRITICAL: recovery snapshot preserved at: //p' "$ERR10" | tail -n 1)"
+[[ -n "$SNAPSHOT10" && -f "$SNAPSHOT10" ]] || {
+    echo "FAIL case10g: rollback mismatch did not preserve a readable snapshot"; cat "$ERR10"; exit 1;
 }
 
 echo "OK: merge-queue activation is read-only by default and fail-safe on post-PUT failures"
