@@ -6,6 +6,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FIXTURES="$REPO_ROOT/tests/fixtures"
 QUEUE_RULE="$REPO_ROOT/.github/rulesets/main-merge-queue.json"
 SCRIPT="$REPO_ROOT/scripts/activate-merge-queue.sh"
+REQUIRED_WORKFLOW="$REPO_ROOT/.github/workflows/_required.yml"
 SHIM_DIR="$(mktemp -d)"
 trap 'rm -rf "$SHIM_DIR"' EXIT
 
@@ -65,7 +66,7 @@ if [[ "$method" == "PUT" ]]; then
 fi
 
 case "$endpoint" in
-    'repos/HomericIntelligence/Proteus/rulesets?per_page=100')
+    'repos/HomericIntelligence/Proteus/rulesets?per_page=100&page=1')
         rulesets_get_count="$(<"$state_dir/rulesets-get-count")"
         rulesets_get_count=$((rulesets_get_count + 1))
         printf '%s\n' "$rulesets_get_count" >"$state_dir/rulesets-get-count"
@@ -142,14 +143,21 @@ case "$endpoint" in
                 "$fixtures/merge-queue-baseline.json"
         fi
         ;;
-    repos/HomericIntelligence/Proteus/rules/branches/main)
+    'repos/HomericIntelligence/Proteus/rules/branches/main?per_page=100&page=1')
         effective_get_count="$(<"$state_dir/effective-get-count")"
         effective_get_count=$((effective_get_count + 1))
         printf '%s\n' "$effective_get_count" >"$state_dir/effective-get-count"
         if [[ "$put_count" -eq 0 ]]; then
             if [[ "$mode" == "sibling-queue" ]]; then
-                jq --slurpfile sibling "$fixtures/merge-queue-sibling-rule.json" \
-                    '. + $sibling' "$fixtures/merge-queue-effective-before.json"
+                jq '. as $base
+                  | $base + [range(0; 100 - ($base | length)) | {
+                      type: "mock_policy",
+                      parameters: {mock_index: .},
+                      ruleset_source_type: "Repository",
+                      ruleset_source: "HomericIntelligence/Proteus",
+                      ruleset_id: 18221113
+                    }]
+                ' "$fixtures/merge-queue-effective-before.json"
             elif [[ "$mode" == "required-context-mismatch" ]]; then
                 jq '.[3].parameters.required_status_checks |= map(select(.context != "lint"))' \
                     "$fixtures/merge-queue-effective-before.json"
@@ -186,6 +194,14 @@ case "$endpoint" in
               ruleset_source: "HomericIntelligence/Proteus",
               ruleset_id: 15556490
             })]' "$fixtures/merge-queue-effective-before.json"
+        fi
+        ;;
+    'repos/HomericIntelligence/Proteus/rules/branches/main?per_page=100&page=2')
+        if [[ "$mode" == "sibling-queue" && "$put_count" -eq 0 ]]; then
+            cat "$fixtures/merge-queue-sibling-rule.json"
+        else
+            echo "mock gh: unexpected effective-state page 2" >&2
+            exit 96
         fi
         ;;
     *)
@@ -228,6 +244,14 @@ jq -e '.bypass_actors == [{
   bypass_mode: "pull_request"
 }]' "$PLAN1" >/dev/null || {
     echo "FAIL case1c: dry-run payload did not preserve repository-role bypass"; exit 1;
+}
+awk '
+  /^  integration-tests:$/ { in_job = 1; next }
+  in_job && /^  [[:alnum:]_-]+:$/ { exit }
+  in_job && index($0, "run: bash tests/merge-queue-activation.test.sh") { found = 1 }
+  END { exit(found ? 0 : 1) }
+' "$REQUIRED_WORKFLOW" || {
+    echo "FAIL case1d: activation suite is not wired into required integration-tests"; exit 1;
 }
 
 # Case 2: successful activation performs one PUT and disarms rollback.
@@ -387,8 +411,8 @@ SNAPSHOT10="$(sed -n 's/^CRITICAL: recovery snapshot preserved at: //p' "$ERR10"
     echo "FAIL case10g: rollback mismatch did not preserve a readable snapshot"; cat "$ERR10"; exit 1;
 }
 
-# Case 11: an applicable sibling ruleset with a queue is rejected before any
-# mutation, including in dry-run planning.
+# Case 11: an applicable sibling ruleset with a queue on effective-state page 2
+# is combined and rejected before any mutation, including in dry-run planning.
 STATE11="$SHIM_DIR/state-11"
 make_shim sibling-queue "$STATE11"
 if run_script sibling-queue "$STATE11" --dry-run >/dev/null 2>&1; then
@@ -397,6 +421,11 @@ fi
 [[ "$(<"$STATE11/put-count")" == "0" ]] || {
     echo "FAIL case11b: sibling merge queue performed a PUT"; exit 1;
 }
+grep -Fq \
+    'api repos/HomericIntelligence/Proteus/rules/branches/main?per_page=100&page=2' \
+    "$STATE11/calls" || {
+        echo "FAIL case11c: effective-state page 2 was not fetched"; exit 1;
+    }
 
 # Case 12: a target widened beyond exactly refs/heads/main is rejected.
 STATE12="$SHIM_DIR/state-12"

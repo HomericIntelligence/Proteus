@@ -198,6 +198,8 @@ jobs:
 
       - name: Assert jq present (required by dispatch-apply DLQ)
         run: command -v jq && jq --version
+      - name: Run merge-queue activation fail-safe tests
+        run: bash tests/merge-queue-activation.test.sh
       - name: Test dispatch-apply host validation (fail-closed contract)
         run: bash tests/dispatch-apply.test.sh
       - name: Run dispatch-apply retry/DLQ tests

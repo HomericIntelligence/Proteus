@@ -140,6 +140,50 @@ api_get_with_retry() {
     return 1
 }
 
+api_get_paginated_array_with_retry() {
+    local endpoint="$1"
+    local output="$2"
+    local label="$3"
+    local page=1
+    local page_count
+    local page_output
+    local combined
+
+    page_output="$(mktemp "$work_dir/paginated-page.XXXXXX")"
+    combined="$(mktemp "$work_dir/paginated-combined.XXXXXX")"
+    : >"$combined"
+
+    while true; do
+        if ! api_get_with_retry "${endpoint}&page=${page}" "$page_output" \
+            "$label page $page"
+        then
+            return 1
+        fi
+        if ! jq -e '
+          type == "array"
+          and length <= 100
+          and all(.[]; type == "object")
+        ' "$page_output" >/dev/null
+        then
+            echo "Error: $label page $page was not an array of at most 100 objects." >&2
+            return 1
+        fi
+
+        jq -c '.[]' "$page_output" >>"$combined"
+        page_count="$(jq 'length' "$page_output")"
+        if [[ "$page_count" -lt 100 ]]; then
+            break
+        fi
+        if [[ "$page" -ge 1000 ]]; then
+            echo "Error: $label exceeded the 1000-page safety limit." >&2
+            return 1
+        fi
+        page=$((page + 1))
+    done
+
+    jq -sc '.' "$combined" >"$output"
+}
+
 normalize_ruleset_inventory() {
     jq -Sc 'sort_by(.id)' "$1"
 }
@@ -255,9 +299,9 @@ validate_live_contract() {
 verify_preput_snapshot() {
     api_get_with_retry "$target_endpoint" "$target_preput" \
         "pre-PUT target ruleset"
-    api_get_with_retry "$rulesets_endpoint" "$rulesets_preput" \
+    api_get_paginated_array_with_retry "$rulesets_endpoint" "$rulesets_preput" \
         "pre-PUT ruleset inventory"
-    api_get_with_retry "$effective_endpoint" "$effective_preput" \
+    api_get_paginated_array_with_retry "$effective_endpoint" "$effective_preput" \
         "pre-PUT effective branch rules"
 
     if [[ "$(jq -Sc . "$target_before")" != \
@@ -296,7 +340,9 @@ verify_rollback_once() {
         return 1
     fi
 
-    if ! gh api "$effective_endpoint" >"$rollback_effective_after"; then
+    if ! api_get_paginated_array_with_retry "$effective_endpoint" \
+        "$rollback_effective_after" "rollback effective branch rules"
+    then
         echo "WARN: rollback effective branch rules GET failed." >&2
         return 1
     fi
@@ -327,7 +373,9 @@ verify_postconditions_once() {
         return 1
     fi
 
-    if ! gh api "$rulesets_endpoint" >"$rulesets_after"; then
+    if ! api_get_paginated_array_with_retry "$rulesets_endpoint" \
+        "$rulesets_after" "post-mutation ruleset inventory"
+    then
         echo "WARN: post-mutation ruleset inventory GET failed." >&2
         return 1
     fi
@@ -340,7 +388,9 @@ verify_postconditions_once() {
         return 1
     fi
 
-    if ! gh api "$effective_endpoint" >"$effective_after"; then
+    if ! api_get_paginated_array_with_retry "$effective_endpoint" \
+        "$effective_after" "post-mutation effective branch rules"
+    then
         echo "WARN: post-mutation effective branch rules GET failed." >&2
         return 1
     fi
@@ -359,7 +409,7 @@ verify_postconditions_once() {
 }
 
 rulesets_endpoint="repos/${REPO}/rulesets?per_page=100"
-effective_endpoint="repos/${REPO}/rules/branches/${BRANCH}"
+effective_endpoint="repos/${REPO}/rules/branches/${BRANCH}?per_page=100"
 if [[ "$REPO" != "$EXPECTED_REPO" \
     || "$BRANCH" != "$EXPECTED_BRANCH" \
     || "$RULESET_NAME" != "$EXPECTED_RULESET_NAME" ]]
@@ -367,7 +417,8 @@ then
     echo "Error: activation is pinned to ${EXPECTED_REPO}@${EXPECTED_BRANCH} ruleset ${EXPECTED_RULESET_NAME}." >&2
     exit 1
 fi
-api_get_with_retry "$rulesets_endpoint" "$rulesets_before" "ruleset inventory"
+api_get_paginated_array_with_retry "$rulesets_endpoint" "$rulesets_before" \
+    "ruleset inventory"
 
 target_id="$(jq -er --arg name "$RULESET_NAME" '
   [.[] | select(
@@ -383,7 +434,8 @@ target_id="$(jq -er --arg name "$RULESET_NAME" '
 target_endpoint="repos/${REPO}/rulesets/${target_id}"
 
 api_get_with_retry "$target_endpoint" "$target_before" "target ruleset"
-api_get_with_retry "$effective_endpoint" "$effective_before" "effective branch rules"
+api_get_paginated_array_with_retry "$effective_endpoint" "$effective_before" \
+    "effective branch rules"
 
 validate_live_contract "$rulesets_before" "$target_before" \
     "$effective_before" "$target_id"
