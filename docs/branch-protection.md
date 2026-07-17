@@ -56,6 +56,10 @@ to that event:
 - `.github/workflows/ci.yml`
 - `.github/workflows/release.yml`
 
+Because this rollout changes workflow event triggers, an independent human
+reviewer must review those workflow changes before merge. Automated validation
+does not replace that review requirement.
+
 ### Required status checks
 
 The authoritative required set is the union of all active rulesets returned by
@@ -88,7 +92,11 @@ Whenever a required job is added, renamed, or removed, enumerate the effective
 rules first and patch only the applicable live ruleset while preserving every
 sibling rule and repository-specific context. The live regression test
 `tests/test-required-checks-ruleset.sh` checks the effective union;
-`tests/merge-queue-activation.test.sh` covers offline preservation and rollback.
+`tests/merge-queue-activation.test.sh` covers offline preservation and rollback
+with 10 numbered fail-safe cases. The activation implementation is carried by
+commit `c4c6b19e0e055b21898b5a45f4984ae5e5fc24e9` and its parent
+`94da0478907c01551a6bae29f3d4645e8e886f30`; both commits have verified ED25519
+signatures and valid DCO `Signed-off-by` trailers.
 
 ## Staged activation after #214 merges
 
@@ -115,11 +123,13 @@ that all required contexts are byte-for-byte equivalent after normalization.
 Rollback is disarmed only after every postcondition passes. A PUT-success / GET-
 failure path therefore re-applies the exact pre-mutation target payload.
 
-Central rollout work in [Odysseus #416](https://github.com/HomericIntelligence/Odysseus/pull/416)
+Central rollout work in [Odysseus PR #417](https://github.com/HomericIntelligence/Odysseus/pull/417),
+under umbrella [issue #386](https://github.com/HomericIntelligence/Odysseus/issues/386),
 must follow the same contract: inspect and patch each repository's live
-rulesets, preserve repository-specific rules and contexts, and verify effective
-branch state. It must not apply a fixed generic ruleset payload across the
-fleet; this staged fragment is one rule, not a complete Proteus ruleset.
+rulesets, preserve Proteus's exact two-ruleset, 13-context contract together
+with every repository-specific rule and context, and verify effective branch
+state. It must not apply a fixed generic ruleset payload across the fleet; this
+staged fragment is one rule, not a complete Proteus ruleset.
 
 After activation, enqueue one representative PR and record the
 `merge_group/checks_requested` run, all 13 required check results, and the
