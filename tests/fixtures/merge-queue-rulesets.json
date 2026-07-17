@@ -1,0 +1,20 @@
+[
+  {
+    "id": 15556490,
+    "name": "homeric-main-baseline",
+    "target": "branch",
+    "source_type": "Repository",
+    "source": "HomericIntelligence/Proteus",
+    "enforcement": "active",
+    "updated_at": "2026-07-16T22:00:00Z"
+  },
+  {
+    "id": 18221113,
+    "name": "homeric-main-extras",
+    "target": "branch",
+    "source_type": "Repository",
+    "source": "HomericIntelligence/Proteus",
+    "enforcement": "active",
+    "updated_at": "2026-07-16T22:00:00Z"
+  }
+]
