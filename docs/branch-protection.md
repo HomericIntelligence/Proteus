@@ -200,7 +200,7 @@ gh api repos/HomericIntelligence/Proteus/branches/main/protection
 ## See also
 
 - `docs/milestones.md` — milestone targeting this change set
-- `CLAUDE.md` "Known Critical Defects"
+- `AGENTS.md` "Known Critical Defects"
 - `AGENTS.md` — cross-repo guarantees that depend on this ruleset
 - [GitHub merge queue documentation](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue)
 - [GitHub rulesets REST API](https://docs.github.com/en/rest/repos/rules)
