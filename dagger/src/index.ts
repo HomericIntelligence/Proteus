@@ -47,7 +47,7 @@ export class Proteus {
    * Tagging contract (fixes #2 / #83): when `publish=true`, the image is pushed
    * to `${registry}/${name}:${tag}-staging`. `scripts/promote-image.sh` then
    * copies that staging ref to `${registry}/${name}:${tag}` as a separate step.
-   * This matches the staging→production flow documented in CLAUDE.md and
+   * This matches the staging→production flow documented in AGENTS.md and
    * encoded by `just pipeline`.
    *
    * @param publish - Whether to push the image to the registry (default: false; opt-in to avoid surprising local pushes — see #91)
