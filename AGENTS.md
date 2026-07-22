@@ -77,8 +77,8 @@ Proteus/
 │       └── promote.yml              # Manual promotion workflow
 ├── justfile
 ├── pixi.toml
-├── AGENTS.md
-├── CLAUDE.md
+├── AGENTS.md               # authoritative agent contract
+├── CLAUDE.md               # pointer to AGENTS.md
 └── README.md
 ```
 
