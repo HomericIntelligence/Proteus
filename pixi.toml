@@ -7,7 +7,8 @@ platforms = ["linux-64"]
 
 [dependencies]
 just = ">=1.13"
-python = ">=3.11"
+python = ">=3.13,<3.14"
+pip = ">=24,<27"
 jq = ">=1.7"
 pytest = ">=9.0"
 # skopeo is not available on conda-forge; install via system package manager:
@@ -26,7 +27,7 @@ build    = "just build {NAME}"
 test     = "just test {NAME}"
 promote  = "just promote {SRC} {DEST}"
 lint     = "just lint"
-bootstrap-proteus = "pip install -e ."
+bootstrap-proteus = "python -m pip install -e ."
 validate = "just validate"
 pipeline = { cmd = "python -m proteus run configs/pipelines/{NAME}.yaml --service {NAME}", depends_on = ["bootstrap-proteus"] }
 pipeline-config = { cmd = "python -m proteus.pipeline run configs/pipelines/{CONFIG}.yaml", depends_on = ["bootstrap-proteus"] }
