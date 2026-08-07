@@ -9,7 +9,7 @@
     "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
-    "@dagger.io/dagger": "0.21.7"
+    "@dagger.io/dagger": "0.21.8"
   },
   "//overrides": "Force adm-zip >=0.6.0 (CVE-2026-39244 / GHSA-xcpc-8h2w-3j85, HIGH) pulled transitively via @dagger.io/dagger, and @opentelemetry/core >=2.8.0 (GHSA-8988-4f7v-96qf, unbounded W3C Baggage memory). Remove once the dagger SDK bumps them upstream.",
   "overrides": {
