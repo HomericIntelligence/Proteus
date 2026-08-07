@@ -3,8 +3,10 @@ name: Required Checks
 on:
   push:
     branches: [main]
+
   pull_request:
     branches: [main]
+
   merge_group:
     types: [checks_requested]
 
@@ -16,60 +18,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+
   lint:
     name: lint
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-
-      - name: Install shellcheck
-        run: sudo apt-get install -y shellcheck
-
-      - name: Shellcheck on all shell scripts
-        run: find . -name "*.sh" | xargs shellcheck
-
-      - name: Install yamllint
-        run: pip install yamllint
-
-      - name: yamllint on all YAML files
-        run: yamllint -c .yamllint.yaml .
-
-      - name: Check for Python files
-        id: py-check
-        run: |
-          count=$(find . -name "*.py" -not -path "./.git/*" | wc -l)
-          echo "count=${count}" >> "$GITHUB_OUTPUT"
-
-      - name: Install mypy and run type check
-        if: steps.py-check.outputs.count != '0'
-        run: pip install mypy && mypy --ignore-missing-imports .
-
-      - name: No Python files — emit notice and validate syntax
-        if: steps.py-check.outputs.count == '0'
-        run: |
-          echo "::notice::No Python files found; skipping mypy"
-          find . -name "*.py" -not -path "./.git/*" | xargs -r python -m py_compile
-          echo "Python compile check complete (0 files)"
-
-      - name: Set up Node.js (for tsc)
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: dagger/package-lock.json
+          fetch-depth: 1
 
-      - name: Install dagger TypeScript deps
-        run: cd dagger && npm ci
+      - name: Cache podman container storage
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.local/share/containers/storage
+          key: podman-proteus-${{ runner.os }}-${{ hashFiles('pixi.toml', 'pixi.lock') }}
+          restore-keys: |
+            podman-proteus-${{ runner.os }}-
 
-      - name: TypeScript type check (tsc --noEmit)
-        run: cd dagger && npx tsc --noEmit
-
-      - name: Verify issue #92 invariants
-        # Static-source regression guard moved from ci.yml/lint-scripts
-        # (closes #94 F1). See scripts/verify-issue-92-invariants.sh
-        # for the three invariants enforced.
-        run: bash scripts/verify-issue-92-invariants.sh
+      - name: Build CI image (podman)
+        run: podman build --ignorefile ci/.dockerignore -f ci/Containerfile -t proteus-ci:local .
+      # All checks run inside the CI container — the same image developers
+      # use via `just ci-lint`.
+      - name: lint (in container)
+        run: bash scripts/run_ci_local.sh lint
 
   forbid-suppressions:
     name: forbid-suppressions
@@ -128,153 +100,113 @@ jobs:
   unit-tests:
     name: unit-tests
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-
-      - name: Setup pixi
-        uses: prefix-dev/setup-pixi@a09b6247153796b190642a2b53fac4241043cf6f  # v0.10.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          pixi-version: v0.69.0
-          cache: true
+          fetch-depth: 1
 
-      - name: Bootstrap proteus
-        run: pixi run bootstrap-proteus
+      - name: Cache podman container storage
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.local/share/containers/storage
+          key: podman-proteus-${{ runner.os }}-${{ hashFiles('pixi.toml', 'pixi.lock') }}
+          restore-keys: |
+            podman-proteus-${{ runner.os }}-
 
-      - name: Run pytest
-        run: pixi run pytest tests/unit -v
-
-      - name: Run pipeline-config unit tests
-        run: pixi run pytest tests/test_loader.py tests/test_topology.py tests/test_handlers.py -q
-
-      - name: Install jq
-        run: sudo apt-get install -y jq
-
-      - name: Test dispatch-apply.sh payload construction
-        run: ./scripts/test/test-dispatch-apply.sh
-
-      - name: Test check-symlinks.sh broken-symlink detection
-        run: bash tests/unit/check-symlinks.test.sh
-
-      - name: Test promote-image.sh argument validation
-        run: bash tests/unit/promote-image.test.sh
-
-      - name: Run required-checks ruleset regression test
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash tests/test-required-checks-ruleset.sh
+      - name: Build CI image (podman)
+        run: podman build --ignorefile ci/.dockerignore -f ci/Containerfile -t proteus-ci:local .
+      # All checks run inside the CI container — the same image developers
+      # use via `just ci-unit-tests`.
+      - name: unit-tests (in container)
+        run: bash scripts/run_ci_local.sh unit-tests
 
   integration-tests:
     name: integration-tests
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-
-      - name: Setup pixi
-        uses: prefix-dev/setup-pixi@a09b6247153796b190642a2b53fac4241043cf6f  # v0.10.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          pixi-version: v0.69.0
-          cache: true
+          fetch-depth: 1
 
-      - name: Bootstrap proteus
-        run: pixi run bootstrap-proteus
+      - name: Cache podman container storage
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.local/share/containers/storage
+          key: podman-proteus-${{ runner.os }}-${{ hashFiles('pixi.toml', 'pixi.lock') }}
+          restore-keys: |
+            podman-proteus-${{ runner.os }}-
 
-      - name: Schema-in-sync check
-        run: pixi run pytest tests/unit/test_schema_in_sync.py -v
-
-      - name: Pipeline-config dry-run (drift guard)
-        run: |
-          for f in configs/pipelines/*.yaml; do
-            svc=$(basename "$f" .yaml)
-            pixi run python -m proteus run "$f" --service "$svc" --dry-run
-          done
-
-      - name: Run pipeline-config integration tests
-        run: pixi run pytest tests/test_main_integration.py -q
-
-      - name: Validate pipeline configs against pipeline schema
-        run: pixi run python -m proteus.pipeline validate 'configs/pipelines/*.yaml'
-
-      - name: Assert jq present (required by dispatch-apply DLQ)
-        run: command -v jq && jq --version
-      - name: Run merge-queue activation fail-safe tests
-        run: bash tests/merge-queue-activation.test.sh
-      - name: Test dispatch-apply host validation (fail-closed contract)
-        run: bash tests/dispatch-apply.test.sh
-      - name: Run dispatch-apply retry/DLQ tests
-        run: bash tests/dispatch-apply-retry.test.sh
-      - name: Run remediation-plan sync test
-        run: bash tests/remediation-plan-sync.test.sh
-      - name: Run remediation-plan checkbox regression test
-        run: bash tests/remediation-plan-checkboxes.test.sh
+      - name: Build CI image (podman)
+        run: podman build --ignorefile ci/.dockerignore -f ci/Containerfile -t proteus-ci:local .
+      # All checks run inside the CI container — the same image developers
+      # use via `just ci-integration-tests`.
+      - name: integration-tests (in container)
+        run: bash scripts/run_ci_local.sh integration-tests
 
   security-dependency-scan:
     name: security/dependency-scan
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-
-      - name: Trivy filesystem scan
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          scan-type: fs
-          scan-ref: .
-          exit-code: '1'
-          severity: CRITICAL,HIGH
+          fetch-depth: 1
+
+      - name: Cache podman container storage
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.local/share/containers/storage
+          key: podman-proteus-${{ runner.os }}-${{ hashFiles('pixi.toml', 'pixi.lock') }}
+          restore-keys: |
+            podman-proteus-${{ runner.os }}-
+
+      - name: Build CI image (podman)
+        run: podman build --ignorefile ci/.dockerignore -f ci/Containerfile -t proteus-ci:local .
+      # All checks run inside the CI container — the same image developers
+      # use via `just ci-security-dependency-scan`.
+      - name: security-dependency-scan (in container)
+        run: bash scripts/run_ci_local.sh security-dependency-scan
 
   security-secrets-scan:
     name: security/secrets-scan
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0
 
-      - name: Install Gitleaks
-        run: |
-          GITLEAKS_VERSION=8.30.1
-          OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-          ARCH=$(uname -m | sed 's/x86_64/x64/;s/aarch64/arm64/')
-          curl -sSfL \
-            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_${OS}_${ARCH}.tar.gz" \
-            | tar -xz -C /usr/local/bin gitleaks
-          gitleaks version
+      - name: Cache podman container storage
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.local/share/containers/storage
+          key: podman-proteus-${{ runner.os }}-${{ hashFiles('pixi.toml', 'pixi.lock') }}
+          restore-keys: |
+            podman-proteus-${{ runner.os }}-
 
+      - name: Build CI image (podman)
+        run: podman build --ignorefile ci/.dockerignore -f ci/Containerfile -t proteus-ci:local .
       - name: Run Gitleaks
         run: |
-          # Gitleaks exits 1 on any finding (default). The SARIF upload step
-          # below uses `if: always()` so the report is preserved even when
-          # this step fails. See docs/runbooks/no-silent-failures.md.
-          set -euo pipefail
           if [ -f .gitleaks.toml ]; then
-            gitleaks detect --source . --config .gitleaks.toml \
-              --report-format sarif --report-path gitleaks.sarif
+            podman run --rm --userns=keep-id:uid=1000,gid=1000 \
+              -v "$PWD:/workspace:Z" -w /workspace proteus:local \
+              gitleaks detect --source /workspace --config .gitleaks.toml \
+                --report-format sarif --report-path gitleaks.sarif --redact
           else
-            gitleaks detect --source . \
-              --report-format sarif --report-path gitleaks.sarif
+            podman run --rm --userns=keep-id:uid=1000,gid=1000 \
+              -v "$PWD:/workspace:Z" -w /workspace proteus:local \
+              gitleaks detect --source /workspace \
+                --report-format sarif --report-path gitleaks.sarif --redact
           fi
 
       - name: Upload Gitleaks SARIF
         if: always() && hashFiles('gitleaks.sarif') != ''
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: github/codeql-action/upload-sarif@b1e036aad851c47cdff5be6a3ec1b0a29c4b0db1  # v3
         with:
-          name: gitleaks-report
-          path: gitleaks.sarif
-          retention-days: 90
-
-      - name: Enforce Gitleaks on PRs (fail on findings)
-        if: github.event_name == 'pull_request'
-        run: |
-          # PR-only enforcement; main pushes stay advisory per
-          # docs/runbooks/no-silent-failures.md Bucket E and issue #86.
-          if [ -f .gitleaks.toml ]; then
-            gitleaks detect --source . --config .gitleaks.toml --exit-code 1
-          else
-            gitleaks detect --source . --exit-code 1
-          fi
+          sarif_file: gitleaks.sarif
 
   security-npm-audit:
     name: security/npm-audit
@@ -315,145 +247,146 @@ jobs:
   schema-validation:
     name: schema-validation
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 1
 
-      - name: Install check-jsonschema
-        run: pip install check-jsonschema
+      - name: Cache podman container storage
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.local/share/containers/storage
+          key: podman-proteus-${{ runner.os }}-${{ hashFiles('pixi.toml', 'pixi.lock') }}
+          restore-keys: |
+            podman-proteus-${{ runner.os }}-
 
-      - name: Validate GitHub workflow files against schema
-        run: |
-          # Validation is advisory: schemastore is sometimes stale relative to
-          # new Actions syntax. Emit a workflow warning on mismatch but do not
-          # fail the job. Explicit `if`-guard replaces the prior
-          # `continue-on-error: true` (Bucket E, docs/runbooks/no-silent-failures.md).
-          set -euo pipefail
-          if find .github/workflows -name "*.yml" | \
-              xargs check-jsonschema \
-                --schemafile https://json.schemastore.org/github-workflow
-          then
-            echo "OK: workflow files match schemastore schema"
-          else
-            echo "::warning::Workflow schema validation reported issues (advisory)."
-          fi
+      - name: Build CI image (podman)
+        run: podman build --ignorefile ci/.dockerignore -f ci/Containerfile -t proteus-ci:local .
+      # All checks run inside the CI container — the same image developers
+      # use via `just ci-schema-validation`.
+      - name: schema-validation (in container)
+        run: bash scripts/run_ci_local.sh schema-validation
 
   deps-version-sync:
     name: deps/version-sync
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 1
 
-      - name: Report pinned versions in shell scripts (informational)
-        run: |
-          echo "=== Pinned version strings in shell scripts ==="
-          grep -rh "version=" . --include="*.sh" | sort -u || echo "(none found)"
-          exit 0
+      - name: Cache podman container storage
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.local/share/containers/storage
+          key: podman-proteus-${{ runner.os }}-${{ hashFiles('pixi.toml', 'pixi.lock') }}
+          restore-keys: |
+            podman-proteus-${{ runner.os }}-
 
-      - name: Validate pyproject.toml version if present
-        run: |
-          if [ -f pyproject.toml ]; then
-            python -c "
-          import tomllib, pathlib
-          data = tomllib.loads(pathlib.Path('pyproject.toml').read_text())
-          ver = data.get('project', {}).get('version') or data.get('tool', {}).get('poetry', {}).get('version')
-          print(f'pyproject.toml version: {ver}')
-          "
-          else
-            echo "No pyproject.toml found — skipping version check"
-          fi
+      - name: Build CI image (podman)
+        run: podman build --ignorefile ci/.dockerignore -f ci/Containerfile -t proteus-ci:local .
+      # All checks run inside the CI container — the same image developers
+      # use via `just ci-deps-version-sync`.
+      - name: deps-version-sync (in container)
+        run: bash scripts/run_ci_local.sh deps-version-sync
 
   markdownlint:
     name: markdownlint
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    needs: lint
-    permissions:
-      contents: read
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-      - name: Run markdownlint-cli2
-        uses: DavidAnson/markdownlint-cli2-action@ded1f9488f68a970bc66ea5619e13e9b52e601cd  # v20.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          globs: "**/*.md
-          !.claude/**"
-          config: ".markdownlint.yaml"
+          fetch-depth: 1
+
+      - name: Cache podman container storage
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.local/share/containers/storage
+          key: podman-proteus-${{ runner.os }}-${{ hashFiles('pixi.toml', 'pixi.lock') }}
+          restore-keys: |
+            podman-proteus-${{ runner.os }}-
+
+      - name: Build CI image (podman)
+        run: podman build --ignorefile ci/.dockerignore -f ci/Containerfile -t proteus-ci:local .
+      # All checks run inside the CI container — the same image developers
+      # use via `just ci-markdownlint`.
+      - name: markdownlint (in container)
+        run: bash scripts/run_ci_local.sh markdownlint
 
   pixi-check:
     name: pixi-check
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    needs: lint
-    permissions:
-      contents: read
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-      - name: Skip if no pixi.toml
-        id: detect
-        run: |
-          if [ ! -f pixi.toml ]; then
-            echo "::notice::No pixi.toml in repo, skipping pixi-check"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Setup pixi
-        if: steps.detect.outputs.skip == 'false'
-        uses: prefix-dev/setup-pixi@a09b6247153796b190642a2b53fac4241043cf6f  # v0.10.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          pixi-version: v0.69.0
-          cache: true
-      - name: pixi install (locked)
-        if: steps.detect.outputs.skip == 'false'
-        run: |
-          if [ -f pixi.lock ]; then
-            pixi install --locked
-          else
-            echo "::warning::pixi.toml present but pixi.lock missing — running unlocked"
-            pixi install
-          fi
+          fetch-depth: 1
+
+      - name: Cache podman container storage
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.local/share/containers/storage
+          key: podman-proteus-${{ runner.os }}-${{ hashFiles('pixi.toml', 'pixi.lock') }}
+          restore-keys: |
+            podman-proteus-${{ runner.os }}-
+
+      - name: Build CI image (podman)
+        run: podman build --ignorefile ci/.dockerignore -f ci/Containerfile -t proteus-ci:local .
+      # All checks run inside the CI container — the same image developers
+      # use via `just ci-pixi-check`.
+      - name: pixi-check (in container)
+        run: bash scripts/run_ci_local.sh pixi-check
 
   justfile-check:
     name: justfile-check
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    needs: lint
-    permissions:
-      contents: read
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-      - name: Skip if no justfile
-        id: detect
-        run: |
-          if [ ! -f justfile ] && [ ! -f Justfile ]; then
-            echo "::notice::No justfile in repo, skipping justfile-check"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Install just
-        if: steps.detect.outputs.skip == 'false'
-        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          just-version: "1.36.0"
-      - name: Validate justfile
-        if: steps.detect.outputs.skip == 'false'
-        run: |
-          just --evaluate >/dev/null
-          just --list >/dev/null
+          fetch-depth: 1
+
+      - name: Cache podman container storage
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.local/share/containers/storage
+          key: podman-proteus-${{ runner.os }}-${{ hashFiles('pixi.toml', 'pixi.lock') }}
+          restore-keys: |
+            podman-proteus-${{ runner.os }}-
+
+      - name: Build CI image (podman)
+        run: podman build --ignorefile ci/.dockerignore -f ci/Containerfile -t proteus-ci:local .
+      # All checks run inside the CI container — the same image developers
+      # use via `just ci-justfile-check`.
+      - name: justfile-check (in container)
+        run: bash scripts/run_ci_local.sh justfile-check
 
   symlink-check:
     name: symlink-check
     runs-on: ubuntu-24.04
-    timeout-minutes: 3
-    needs: lint
-    permissions:
-      contents: read
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
-      - name: Run symlink check
-        run: bash scripts/check-symlinks.sh
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 1
+
+      - name: Cache podman container storage
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.local/share/containers/storage
+          key: podman-proteus-${{ runner.os }}-${{ hashFiles('pixi.toml', 'pixi.lock') }}
+          restore-keys: |
+            podman-proteus-${{ runner.os }}-
+
+      - name: Build CI image (podman)
+        run: podman build --ignorefile ci/.dockerignore -f ci/Containerfile -t proteus-ci:local .
+      # All checks run inside the CI container — the same image developers
+      # use via `just ci-symlink-check`.
+      - name: symlink-check (in container)
+        run: bash scripts/run_ci_local.sh symlink-check
 
   branch-protection-test:
     name: branch-protection-test
@@ -487,6 +420,7 @@ jobs:
   # `test` that the Ecosystem CI Status board's test column targets. The split
   # suites (unit-tests / integration-tests / branch-protection-test) are kept
   # as their own check-runs; this job just succeeds once they all pass.
+
   test:
     name: test
     runs-on: ubuntu-24.04
@@ -500,6 +434,7 @@ jobs:
   # Canonical `package` gate (Odysseus CI naming convention). Builds the
   # distributable for the installable `proteus` Python CLI (pyproject.toml
   # declares a setuptools build-backend and a `proteus` console script).
+
   package:
     name: package
     runs-on: ubuntu-24.04
@@ -539,6 +474,7 @@ jobs:
   # Canonical `install` gate (Odysseus CI naming convention). Install smoke
   # test: pip-installs the built wheel into a clean virtualenv and exercises
   # the `proteus` console-script entry point declared in pyproject.toml.
+
   install:
     name: install
     runs-on: ubuntu-24.04
