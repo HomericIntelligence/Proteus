@@ -11,9 +11,11 @@
   "dependencies": {
     "@dagger.io/dagger": "0.21.7"
   },
-  "//overrides": "Force adm-zip >=0.6.0 (CVE-2026-39244 / GHSA-xcpc-8h2w-3j85, HIGH). Pulled transitively via @dagger.io/dagger, which still pins adm-zip ^0.5.17. Remove once the dagger SDK bumps it upstream.",
+  "//overrides": "Force adm-zip >=0.6.0 (CVE-2026-39244 / GHSA-xcpc-8h2w-3j85, HIGH) and @opentelemetry/core >=2.8.0 + propagator-jaeger >=2.9.0 (GHSA-8988-4f7v-96qf / GHSA-45rx-2jwx-cxfr), all pulled transitively via @dagger.io/dagger. Remove once the dagger SDK bumps them upstream.",
   "overrides": {
-    "adm-zip": "^0.6.0"
+    "adm-zip": "^0.6.0",
+    "@opentelemetry/core": "^2.8.0",
+    "@opentelemetry/propagator-jaeger": "^2.9.0"
   },
   "devDependencies": {
     "typescript": "~7.0.2",
