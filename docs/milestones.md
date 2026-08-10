@@ -68,4 +68,4 @@ enough context.
 - `docs/runbooks/cross-repo-dispatch-failure.md`
 - `docs/branch-protection.md`
 - `docs/backwards-compat.md`
-- `CLAUDE.md` "Known Critical Defects"
+- `AGENTS.md` "Known Critical Defects"

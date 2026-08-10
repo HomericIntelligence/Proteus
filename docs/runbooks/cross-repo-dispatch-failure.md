@@ -127,5 +127,5 @@ Once the cause is identified, see Step 5 for the audited recovery procedure
   contract drift, GitHub outage, etc.).
 - If a fix lands, link the issue and update this runbook with the
   new diagnostic step.
-- Update `CLAUDE.md` "known critical defects" list if a new class of
+- Update `AGENTS.md` "known critical defects" list if a new class of
   failure was uncovered.
