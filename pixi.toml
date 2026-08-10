@@ -7,7 +7,7 @@ platforms = ["linux-64"]
 
 [dependencies]
 just = ">=1.13"
-python = ">=3.11"
+python = ">=3.13,<3.14"
 jq = ">=1.7"
 pytest = ">=9.0"
 # skopeo is not available on conda-forge; install via system package manager:
