@@ -523,7 +523,7 @@ packages:
 - pypi: .
   name: proteus
   requires_dist:
-  - pydantic>=2.6
+  - pydantic>=2.13.4
   - pyyaml>=6.0.3
   - jsonschema>=4.26.0
   requires_python: '>=3.13,<3.14'
