@@ -523,13 +523,8 @@ packages:
 - pypi: .
   name: proteus
   requires_dist:
-<<<<<<< HEAD
   - pydantic>=2.13.4
-  - pyyaml>=6.0
-=======
-  - pydantic>=2.6
   - pyyaml>=6.0.3
->>>>>>> origin/main
   - jsonschema>=4.21
   requires_python: '>=3.13,<3.14'
 - pypi: https://files.pythonhosted.org/packages/07/f8/41db9de19d7987d6b04715a02b3b40aea467000275d9d758ffaa31af7d50/pydantic_core-2.46.4-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
