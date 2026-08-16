@@ -3,7 +3,7 @@ name = "proteus"
 version = "0.1.0"
 description = "Proteus pipeline runner"
 requires-python = ">=3.13,<3.14"
-dependencies = ["pydantic>=2.13.4", "pyyaml>=6.0.3", "jsonschema>=4.21"]
+dependencies = ["pydantic>=2.13.4", "pyyaml>=6.0.3", "jsonschema>=4.26.0"]
 
 [project.scripts]
 proteus = "proteus.__main__:main"
