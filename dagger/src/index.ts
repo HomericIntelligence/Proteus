@@ -1,4 +1,4 @@
-import { dag, Container, Directory, object, func, ExecError } from "@dagger.io/dagger"
+import { dag, Directory, object, func, ExecError } from "@dagger.io/dagger"
 import { stagingRef } from "./tag"
 
 class ProteusPipelineError extends Error {
