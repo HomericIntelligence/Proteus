@@ -73,7 +73,9 @@ def _assert_required_workflow_ready(
     assert isinstance(triggers, dict)
     assert "push" in triggers, f"{path} must preserve push behavior"
     assert "pull_request" in triggers, f"{path} must preserve pull_request behavior"
-    assert triggers.get("merge_group") == {"types": ["checks_requested"]}
+    assert "merge_group" not in triggers, (
+        f"{path} must not listen to merge_group (owned by merge-queue-smoke.yml)"
+    )
 
     missing = required_contexts - _job_contexts(workflow)
     assert not missing, (
@@ -91,13 +93,23 @@ def test_required_context_workflows_support_merge_groups(
     _assert_required_workflow_ready(workflow, path, required_contexts)
 
 
-def test_required_workflow_guard_detects_missing_merge_group() -> None:
+def test_required_workflow_guard_detects_stray_merge_group() -> None:
     synthetic = {
-        "on": {"push": {}, "pull_request": {}},
+        "on": {"push": {}, "pull_request": {}, "merge_group": {"types": ["checks_requested"]}},
         "jobs": {"lint": {"name": "lint"}},
     }
     with pytest.raises(AssertionError):
         _assert_required_workflow_ready(synthetic, "synthetic.yml", {"lint"})
+
+
+def test_merge_queue_smoke_workflow_owns_merge_group() -> None:
+    """The smoke workflow is the single merge_group listener for the queue."""
+    smoke = _load_workflow(".github/workflows/merge-queue-smoke.yml")
+    triggers = smoke["on"]
+    assert isinstance(triggers, dict)
+    assert triggers.get("merge_group") == {"types": ["checks_requested"]}
+    assert "pull_request" not in triggers
+    assert "push" not in triggers
 
 
 def test_release_workflow_preserves_dry_run_and_publish_guards() -> None:
