@@ -282,6 +282,25 @@ just validate
 pixi shell
 ```
 
+## Design Philosophy
+
+The pipeline topology above is not accidental — it follows a small set of design
+principles inherited from **ProjectOdyssey**, where cross-repo dispatch and
+image promotion were first incubated. Those principles, applied to Proteus, are:
+
+- **Pipeline-as-code (DRY).** CI/CD behavior lives in one Dagger module
+  (`dagger/src/index.ts`), not scattered shell; every job, promotion step, and
+  dispatch is a typed, testable declaration.
+- **Hermetic by default (reproducibility).** All heavy work runs inside the
+  podman CI image; host state is never trusted, so a green check means the same
+  thing on any runner.
+- **One-way dispatch (KISS / YAGNI).** Cross-repo flows follow a single
+  direction (Achaeans → Proteus → Myrmidons) with explicit contracts; we do not
+  add hops, retries, or escalation paths until a concrete failure demands them.
+- **Least privilege (POLA).** Proteus writes to other repositories only through
+  scoped dispatch channels with pinned credentials — never broad push access.
+
+
 ## See also
 
 - `docs/runbooks/cross-repo-dispatch-failure.md`
