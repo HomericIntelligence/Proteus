@@ -37,9 +37,9 @@ AchaeanFleet ──(image-pushed event)──► Proteus ──(dispatch)──�
 | Agent | Owns | Must not do |
 |---|---|---|
 | Proteus | Dagger module, CI workflows, promote/dispatch glue | apply cluster state directly |
-| ProjectAchaeanFleet | container image build and push | call Dagger functions |
+| AchaeanFleet | container image build and push | call Dagger functions |
 | Myrmidons | declarative cluster apply | dispatch its own work |
-| ProjectAgamemnon | agent orchestration | drive CI |
+| Agamemnon | agent orchestration | drive CI |
 
 ## Key Principles
 
@@ -285,7 +285,7 @@ pixi shell
 ## Design Philosophy
 
 The pipeline topology above is not accidental — it follows a small set of design
-principles inherited from **ProjectOdyssey**, where cross-repo dispatch and
+principles inherited from **Odyssey**, where cross-repo dispatch and
 image promotion were first incubated. Those principles, applied to Proteus, are:
 
 - **Pipeline-as-code (DRY).** CI/CD behavior lives in one Dagger module
