@@ -516,3 +516,101 @@ jobs:
           proteus --help
           # `validate --help` exercises the validate subcommand wiring.
           proteus validate --help
+
+  required-checks-gate:
+    name: required-checks-gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    if: ${{ always() }}
+    needs:
+      - branch-protection-test
+      - build
+      - deps-version-sync
+      - forbid-suppressions
+      - install
+      - integration-tests
+      - justfile-check
+      - lint
+      - markdownlint
+      - package
+      - pixi-check
+      - schema-validation
+      - security-dependency-scan
+      - security-npm-audit
+      - security-secrets-scan
+      - symlink-check
+      - test
+      - unit-tests
+      - version-consistency
+    steps:
+      - name: Require every gating job to succeed
+        env:
+          EXPECTED_NEEDS_JSON: >-
+            ["branch-protection-test",
+            "build",
+            "deps-version-sync",
+            "forbid-suppressions",
+            "install",
+            "integration-tests",
+            "justfile-check",
+            "lint",
+            "markdownlint",
+            "package",
+            "pixi-check",
+            "schema-validation",
+            "security-dependency-scan",
+            "security-npm-audit",
+            "security-secrets-scan",
+            "symlink-check",
+            "test",
+            "unit-tests",
+            "version-consistency"]
+          NEEDS_JSON: ${{ toJson(needs) }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+
+          def fail(message: str) -> None:
+              print(f"::error::{message}", file=sys.stderr)
+              raise SystemExit(1)
+
+          try:
+              expected_items = json.loads(os.environ["EXPECTED_NEEDS_JSON"])
+              needs = json.loads(os.environ["NEEDS_JSON"])
+          except (KeyError, TypeError, json.JSONDecodeError) as error:
+              fail(f"invalid aggregate input: {error}")
+
+          if not isinstance(expected_items, list) or not all(
+              isinstance(item, str) for item in expected_items
+          ):
+              fail("expected-needs input is not a list of job ids")
+          if not isinstance(needs, dict):
+              fail("needs input is not an object")
+
+          expected = set(expected_items)
+          if len(expected) != len(expected_items):
+              fail("expected-needs input contains duplicate job ids")
+
+          actual = set(needs)
+          missing = sorted(expected - actual)
+          unexpected = sorted(actual - expected)
+          if missing or unexpected:
+              fail(f"needs set mismatch: missing={missing}, unexpected={unexpected}")
+
+          unsuccessful = {}
+          for job_id in sorted(expected):
+              job = needs[job_id]
+              result = job.get("result") if isinstance(job, dict) else None
+              if result != "success":
+                  unsuccessful[job_id] = result
+
+          if unsuccessful:
+              fail(f"required jobs did not succeed: {unsuccessful}")
+
+          print(f"OK: all {len(expected)} required jobs succeeded")
+          PY
